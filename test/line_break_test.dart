@@ -53,6 +53,44 @@ void defineTests() {
     );
 
     testWidgets(
+      'html br tag creates a hard line break',
+      (WidgetTester tester) async {
+        const String data = 'foo<br>bar';
+        await tester.pumpWidget(
+          boilerplate(
+            const MarkdownBody(data: data),
+          ),
+        );
+
+        final Finder richTextFinder = find.byType(RichText);
+        expect(richTextFinder, findsOneWidget);
+
+        final RichText richText = richTextFinder.evaluate().first.widget as RichText;
+        final String text = richText.text.toPlainText();
+        expect(text, 'foo\nbar');
+      },
+    );
+
+    testWidgets(
+      'html BR tag with whitespace creates a hard line break',
+      (WidgetTester tester) async {
+        const String data = 'foo<BR />bar';
+        await tester.pumpWidget(
+          boilerplate(
+            const MarkdownBody(data: data),
+          ),
+        );
+
+        final Finder richTextFinder = find.byType(RichText);
+        expect(richTextFinder, findsOneWidget);
+
+        final RichText richText = richTextFinder.evaluate().first.widget as RichText;
+        final String text = richText.text.toPlainText();
+        expect(text, 'foo\nbar');
+      },
+    );
+
+    testWidgets(
       // Example 656 from GFM.
       'more than two spaces at end of line',
       (WidgetTester tester) async {

@@ -43,6 +43,24 @@ void defineTests() {
     );
 
     testWidgets(
+      'render HTML line breaks inside cells',
+      (WidgetTester tester) async {
+        const String data = '|Header|\n|-----|\n|Line 1<br>Line 2|';
+        await tester.pumpWidget(
+          boilerplate(
+            const MarkdownBody(data: data),
+          ),
+        );
+
+        final Iterable<RichText> cells = tester.widgetList<RichText>(find.byType(RichText));
+        expect(
+          cells.map((RichText text) => text.text.toPlainText()),
+          contains('Line 1\nLine 2'),
+        );
+      },
+    );
+
+    testWidgets(
       'should work with alignments',
       (WidgetTester tester) async {
         const String data = '|Header 1|Header 2|Header 3|\n|:----|:----:|----:|\n|Col 1|Col 2|Col 3|';

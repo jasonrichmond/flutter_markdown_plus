@@ -17,17 +17,19 @@ Tables make it easy to compare related values. Alignment markers keep columns re
 
 | Backlog Item              | Owner  | Status        | Estimate |
 | :------------------------ | :----- | :-----------: | -------: |
-| Authentication<br> refactor   | Taylor | 🟢 Done       |        5 |
+| Authentication<br>refactor | Taylor | 🟢 Done       |        5 |
 | Crash reporting setup     | Casey  | 🟡 In progress |        3 |
 | Offline sync prototype    | Drew   | 🔴 Blocked    |        8 |
 
 Totals and targets
 
-| Metric             | Current | Target |
-| ------------------ | ------: | -----: |
-| Velocity (points)  |      36 |     40 |
-| Bugs outstanding   |      12 |      5 |
-| Coverage           |     86% |    90% |
+| Metric                   | Current | Target |
+| ------------------------ | ------: | -----: |
+| Velocity (points)<br>14d |      36 |     40 |
+| Bugs outstanding         |      12 |      5 |
+| Coverage                 |     86% |    90% |
+
+Line breaks also work outside of tables:<br>Use `<br>` anywhere inline for a forced newline.
 ''';
 
 const String _notes = '''
@@ -38,7 +40,8 @@ const String _notes = '''
 
 This demo highlights GitHub-flavored Markdown table support in flutter_markdown_plus. The table
 syntax is enabled by default when using the GitHub extension set, which is also the package
-default.
+default. The example also shows how raw HTML `<br>` tags render as hard line breaks inside
+tables and regular paragraphs.
 
 ## Tips
 
