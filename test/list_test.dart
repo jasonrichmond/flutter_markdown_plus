@@ -254,6 +254,76 @@ void defineTests() {
     );
   });
 
+  group('HTML Lists', () {
+    testWidgets(
+      'unordered list renders from HTML tags',
+      (WidgetTester tester) async {
+        const String data = '<ul><li>First</li><li>Second</li></ul>';
+        await tester.pumpWidget(
+          boilerplate(
+            const MarkdownBody(data: data),
+          ),
+        );
+
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+        });
+
+        final Iterable<RichText> richTexts = tester.widgetList<RichText>(find.byType(RichText));
+        final String combined = richTexts.map((RichText text) => text.text.toPlainText()).join('\n');
+        expect(combined.contains('• First'), isTrue);
+        expect(combined.contains('• Second'), isTrue);
+      },
+    );
+
+    testWidgets(
+      'ordered list renders from HTML tags',
+      (WidgetTester tester) async {
+        const String data = '<ol><li>First</li><li>Second</li></ol>';
+        await tester.pumpWidget(
+          boilerplate(
+            const MarkdownBody(data: data),
+          ),
+        );
+
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+        });
+
+        final Iterable<RichText> richTexts = tester.widgetList<RichText>(find.byType(RichText));
+        final String combined = richTexts.map((RichText text) => text.text.toPlainText()).join('\n');
+        expect(combined.contains('1.'), isTrue);
+        expect(combined.contains('First'), isTrue);
+        expect(combined.contains('2.'), isTrue);
+        expect(combined.contains('Second'), isTrue);
+      },
+    );
+
+    testWidgets(
+      'nested HTML list renders',
+      (WidgetTester tester) async {
+        const String data = '<ul><li>Outer<ul><li>Inner</li></ul></li></ul>';
+        await tester.pumpWidget(
+          boilerplate(
+            const MarkdownBody(data: data),
+          ),
+        );
+
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+        });
+
+        final Iterable<RichText> richTexts = tester.widgetList<RichText>(find.byType(RichText));
+        final String combined = richTexts.map((RichText text) => text.text.toPlainText()).join('\n');
+        expect(combined.contains('• Outer'), isTrue);
+        expect(combined.contains('• Inner'), isTrue);
+      },
+    );
+  });
+
   group('fitContent', () {
     testWidgets(
       'uses maximum width when false',

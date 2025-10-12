@@ -30,6 +30,14 @@ Totals and targets
 | Coverage                 |     86% |    90% |
 
 Line breaks also work outside of tables:<br>Use `<br>` anywhere inline for a forced newline.
+
+Action items
+
+| Owner  | Follow-up                                                                 |
+| :----- | :------------------------------------------------------------------------ |
+| Taylor | <ul><li>Finalize release notes</li><li>Prep sprint review</li></ul>        |
+| Casey  | <ul><li>Draft outage postmortem</li><li>Update monitoring dashboard</li></ul> |
+| Drew   | <ol><li>Sync with infra team</li><li>Schedule design review</li></ol>      |
 ''';
 
 const String _notes = '''
@@ -48,6 +56,7 @@ tables and regular paragraphs.
 - Use a colon on the left, right, or both sides of the separator row to set column alignment.
 - Styling such as borders and cell padding can be customized with a `MarkdownStyleSheet`.
 - A blank line before and after a table keeps the document easy to read.
+- Raw HTML lists (`<ul>`/`<ol>`) nested in table cells now render with proper bullets.
 ''';
 
 class TableMarkdownDemo extends StatelessWidget implements MarkdownDemoWidget {

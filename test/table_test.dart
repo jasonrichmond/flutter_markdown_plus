@@ -61,6 +61,52 @@ void defineTests() {
     );
 
     testWidgets(
+      'render HTML unordered list inside cells',
+      (WidgetTester tester) async {
+        const String data = '|Header|\n|-----|\n|<ul><li>First</li><li>Second</li></ul>|';
+        await tester.pumpWidget(
+          boilerplate(
+            const MarkdownBody(data: data),
+          ),
+        );
+
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+        });
+
+        final Iterable<RichText> cells = tester.widgetList<RichText>(find.byType(RichText));
+        final String combined = cells.map((RichText text) => text.text.toPlainText()).join('\n');
+        expect(combined.contains('• First'), isTrue);
+        expect(combined.contains('• Second'), isTrue);
+      },
+    );
+
+    testWidgets(
+      'render HTML ordered list inside cells',
+      (WidgetTester tester) async {
+        const String data = '|Header|\n|-----|\n|<ol><li>First</li><li>Second</li></ol>|';
+        await tester.pumpWidget(
+          boilerplate(
+            const MarkdownBody(data: data),
+          ),
+        );
+
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+        });
+
+        final Iterable<RichText> cells = tester.widgetList<RichText>(find.byType(RichText));
+        final String combined = cells.map((RichText text) => text.text.toPlainText()).join('\n');
+        expect(combined.contains('1.'), isTrue);
+        expect(combined.contains('First'), isTrue);
+        expect(combined.contains('2.'), isTrue);
+        expect(combined.contains('Second'), isTrue);
+      },
+    );
+
+    testWidgets(
       'should work with alignments',
       (WidgetTester tester) async {
         const String data = '|Header 1|Header 2|Header 3|\n|:----|:----:|----:|\n|Col 1|Col 2|Col 3|';

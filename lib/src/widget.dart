@@ -377,8 +377,10 @@ class _MarkdownWidgetState extends State<MarkdownWidget> implements MarkdownBuil
       encodeHtml: false,
     );
 
+    final String normalizedData = _replaceHtmlLists(widget.data);
+
     // Parse the source Markdown data into nodes of an Abstract Syntax Tree.
-    final List<String> lines = const LineSplitter().convert(widget.data);
+    final List<String> lines = const LineSplitter().convert(normalizedData);
     final List<md.Node> astNodes = document.parseLines(lines);
 
     // Configure a Markdown widget builder to traverse the AST nodes and
@@ -592,4 +594,141 @@ abstract class MarkdownPaddingBuilder {
 
   /// Called when a widget node has been rendering and need tag padding.
   EdgeInsets getPadding() => EdgeInsets.zero;
+}
+
+final RegExp _htmlListOpenPattern = RegExp(r'<(ul|ol)\b[^>]*>', caseSensitive: false);
+final RegExp _htmlListItemPattern = RegExp(r'<li\b[^>]*>', caseSensitive: false);
+final RegExp _htmlParagraphPattern = RegExp(r'</?p[^>]*>', caseSensitive: false);
+final RegExp _htmlBreakPattern = RegExp(r'<br\s*/?>', caseSensitive: false);
+
+String _replaceHtmlLists(String input, {int depth = 0}) {
+  if (input.isEmpty) {
+    return input;
+  }
+
+  final StringBuffer buffer = StringBuffer();
+  int index = 0;
+
+  while (index < input.length) {
+    final RegExpMatch? match = _firstMatch(_htmlListOpenPattern, input, index);
+    if (match == null) {
+      buffer.write(input.substring(index));
+      break;
+    }
+
+    buffer.write(input.substring(index, match.start));
+    final String tag = match.group(1)!.toLowerCase();
+    final _TagSegment? segment = _extractTag(input, match, tag);
+    if (segment == null) {
+      buffer.write(input.substring(match.start, match.end));
+      index = match.end;
+      continue;
+    }
+
+    final String rendered = _renderHtmlList(segment.inner, tag, depth);
+    buffer.write(rendered);
+    index = segment.end;
+  }
+
+  return buffer.toString();
+}
+
+String _renderHtmlList(String content, String tag, int depth) {
+  final bool ordered = tag == 'ol';
+  final List<String> items = <String>[];
+  int index = 0;
+  int counter = 1;
+
+  while (index < content.length) {
+    final RegExpMatch? match = _firstMatch(_htmlListItemPattern, content, index);
+    if (match == null) {
+      break;
+    }
+    final _TagSegment? segment = _extractTag(content, match, 'li');
+    if (segment == null) {
+      index = match.end;
+      continue;
+    }
+
+    final String processed = _replaceHtmlLists(segment.inner, depth: depth + 1)
+        .replaceAll(_htmlParagraphPattern, '')
+        .trim();
+    final List<String> lines = _splitHtmlLines(processed).map((String line) => line.trim()).toList();
+    if (lines.isEmpty) {
+      lines.add('');
+    }
+
+    final String indent = '\u00A0' * (depth * 2);
+    final String marker = ordered ? '${counter++}.' : '•';
+    final List<String> renderedLines = <String>[];
+    renderedLines.add('$indent$marker ${lines.first}'.trimRight());
+
+    final String childIndent = '$indent\u00A0\u00A0';
+    for (final String line in lines.skip(1)) {
+      if (line.isEmpty) {
+        continue;
+      }
+      renderedLines.add('$childIndent$line');
+    }
+
+    items.add(renderedLines.join('<br>'));
+    index = segment.end;
+  }
+
+  return items.join('<br>');
+}
+
+Iterable<String> _splitHtmlLines(String input) {
+  if (input.isEmpty) {
+    return const <String>[];
+  }
+  return input.split(_htmlBreakPattern);
+}
+
+_TagSegment? _extractTag(String source, RegExpMatch openMatch, String tag) {
+  final RegExp openPattern = RegExp('<$tag\\b[^>]*>', caseSensitive: false);
+  final RegExp closePattern = RegExp('</$tag\\s*>', caseSensitive: false);
+
+  int searchIndex = openMatch.end;
+  int depth = 1;
+
+  while (searchIndex < source.length) {
+    final RegExpMatch? nextOpen = _firstMatch(openPattern, source, searchIndex);
+    final RegExpMatch? nextClose = _firstMatch(closePattern, source, searchIndex);
+
+    if (nextClose == null) {
+      return null;
+    }
+
+    if (nextOpen != null && nextOpen.start < nextClose.start) {
+      depth++;
+      searchIndex = nextOpen.end;
+      continue;
+    }
+
+    depth--;
+    final int closeStart = nextClose.start;
+    final int closeEnd = nextClose.end;
+    if (depth == 0) {
+      final String inner = source.substring(openMatch.end, closeStart);
+      return _TagSegment(inner, closeEnd);
+    }
+    searchIndex = closeEnd;
+  }
+
+  return null;
+}
+
+RegExpMatch? _firstMatch(RegExp pattern, String source, int start) {
+  for (final RegExpMatch match in pattern.allMatches(source, start)) {
+    return match;
+  }
+  return null;
+}
+
+class _TagSegment {
+  const _TagSegment(this.inner, this.end);
+
+  final String inner;
+  final int end;
 }
