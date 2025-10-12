@@ -68,14 +68,15 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "1.0.3"
+    version: "1.0.5"
   flutter_markdown_plus_latex:
     dependency: "direct main"
     description:
-      path: "../../flutter_markdown_plus_latex"
-      relative: true
-    source: path
-    version: "1.0.1"
+      name: flutter_markdown_plus_latex
+      sha256: "2e7698b291f0657ca445efab730bb25a8c5851037e882cb7bf47d16a5c218de7"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.5"
   flutter_math_fork:
     dependency: transitive
     description:
@@ -336,4 +337,4 @@ packages:
     version: "6.5.0"
 sdks:
   dart: ">=3.7.0-0 <4.0.0"
-  flutter: ">=3.27.1"
+  flutter: ">=3.22.0"

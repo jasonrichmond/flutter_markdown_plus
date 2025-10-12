@@ -12,6 +12,7 @@ import '../demos/markdown_latex_plugin_demo.dart';
 import '../demos/minimal_markdown_demo.dart';
 import '../demos/original_demo.dart';
 import '../demos/subscript_syntax_demo.dart';
+import '../demos/table_markdown_demo.dart';
 import '../demos/wrap_alignment_demo.dart';
 import '../screens/demo_card.dart';
 import '../shared/markdown_demo_widget.dart';
@@ -33,6 +34,7 @@ class HomeScreen extends StatelessWidget {
     const CenteredHeaderDemo(),
     const MarkdownBodyShrinkWrapDemo(),
     const CustomBulletListDemo(),
+    const TableMarkdownDemo(),
     const MarkdownLatexPluginDemo(),
   ];
 
