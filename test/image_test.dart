@@ -196,6 +196,18 @@ void defineTests() {
           ),
         );
 
+        final Image image = tester.widget(find.byType(Image));
+        addTearDown(() async {
+          image.image.evict();
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+        });
+
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+        });
+
         final Text text = tester.widget(find.byType(Text));
         final TextSpan textSpan = text.textSpan! as TextSpan;
         expect(textSpan.text, 'Hello ');
@@ -349,14 +361,8 @@ void defineTests() {
 
         // On the web, any URI with an unrecognized scheme is treated as a network image.
         // Thus the error builder of the Image widget is called.
-        // On non-web, any URI with an unrecognized scheme is treated as a file image.
-        // However, constructing a file from an invalid URI will throw an exception.
-        // Thus the Image widget is never created, nor is its error builder called.
-        if (kIsWeb || isLinux) {
-          expect(find.byType(Image), findsOneWidget);
-        } else {
-          expect(find.byType(Image), findsNothing);
-        }
+        // On non-web platforms, an invalid scheme throws before an Image is built.
+        expect(find.byType(Image), kIsWeb ? findsOneWidget : findsNothing);
 
         expect(tester.takeException(), isNull);
       },
