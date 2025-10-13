@@ -198,7 +198,7 @@ void defineTests() {
 
         final Image image = tester.widget(find.byType(Image));
         addTearDown(() async {
-          image.image.evict();
+          await image.image.evict();
           await tester.pumpWidget(const SizedBox());
           await tester.pumpAndSettle();
         });

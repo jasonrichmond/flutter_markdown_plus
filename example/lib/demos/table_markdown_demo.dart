@@ -38,6 +38,15 @@ Action items
 | Taylor | <ul><li>Finalize release notes</li><li>Prep sprint review</li></ul>        |
 | Casey  | <ul><li>Draft outage postmortem</li><li>Update monitoring dashboard</li></ul> |
 | Drew   | <ol><li>Sync with infra team</li><li>Schedule design review</li></ol>      |
+
+
+|   fewsf |  |
+| --- | --- |
+|   **Class**  Narcotic analgesic   |   **EMS Indications**  <br><ul><li><b>Consult TP</b> to discuss use in RSIP</li><li>Analgesia prior to intubation in conjunction with midazolam</li></ul> |
+|   **Dosage**  <br>  **Repeat**   |   2 mcg/kg rapid IV/IO ideal body weight  <br>  Do not repeat dose   |
+|   **EMS Contraindications**   | <br><ul><li>Hypersensitivity</li><li>Monoamine oxidase inhibitor therapy within last 14 days</li><li>Systolic BP less than 100 mmHg</li></ul> |
+|   **Notes**   | <br><ul><li>Use with caution in myasthenia gravis</li><li>Even when used appropriately, can induce post airway intervention hypotension</li></ul> |
+
 ''';
 
 const String _notes = '''

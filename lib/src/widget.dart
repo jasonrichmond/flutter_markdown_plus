@@ -650,9 +650,9 @@ String _renderHtmlList(String content, String tag, int depth) {
       continue;
     }
 
-    final String processed = _replaceHtmlLists(segment.inner, depth: depth + 1)
-        .replaceAll(_htmlParagraphPattern, '')
-        .trim();
+    final String processed = _convertInlineHtmlToMarkdown(
+      _replaceHtmlLists(segment.inner, depth: depth + 1).replaceAll(_htmlParagraphPattern, '').trim(),
+    );
     final List<String> lines = _splitHtmlLines(processed).map((String line) => line.trim()).toList();
     if (lines.isEmpty) {
       lines.add('');
@@ -683,6 +683,13 @@ Iterable<String> _splitHtmlLines(String input) {
     return const <String>[];
   }
   return input.split(_htmlBreakPattern);
+}
+
+String _convertInlineHtmlToMarkdown(String input) {
+  String result = input;
+  result = result.replaceAll(RegExp(r'</?(strong|b)>', caseSensitive: false), '**');
+  result = result.replaceAll(RegExp(r'</?(em|i)>', caseSensitive: false), '_');
+  return result;
 }
 
 _TagSegment? _extractTag(String source, RegExpMatch openMatch, String tag) {

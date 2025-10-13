@@ -107,6 +107,59 @@ void defineTests() {
     );
 
     testWidgets(
+      'render complex markdown table with inline html',
+      (WidgetTester tester) async {
+        const String data = '''
+|   ![](content/_inline_images/9e5147061d547da0764a8c420c699420.png)  ![](content/_inline_images/e7b4920fd9858296cc843c2c51485b60.png)   |  |
+| --- | --- |
+|   **Class**  Narcotic analgesic   |   **EMS Indications**  <br><ul><li><b>Consult TP</b> to discuss use in RSIP</li><li>Analgesia prior to intubation in conjunction with midazolam</li></ul> |
+|   **Dosage**  <br>  **Repeat**   |   2 mcg/kg rapid IV/IO ideal body weight  <br>  Do not repeat dose   |
+|   **EMS Contraindications**   | <br><ul><li>Hypersensitivity</li><li>Monoamine oxidase inhibitor therapy within last 14 days</li><li>Systolic BP less than 100 mmHg</li></ul> |
+|   **Notes**   | <br><ul><li>Use with caution in myasthenia gravis</li><li>Even when used appropriately, can induce post airway intervention hypotension</li></ul> |
+''';
+
+        await tester.pumpWidget(
+          boilerplate(
+            const MarkdownBody(data: data),
+          ),
+        );
+
+        final List<ImageProvider<Object>> providers =
+            tester.widgetList(find.byType(Image)).cast<Image>().map((Image image) => image.image).toList();
+
+        addTearDown(() async {
+          for (final ImageProvider<Object> provider in providers) {
+            await provider.evict();
+          }
+          await tester.pumpWidget(const SizedBox());
+          await tester.pumpAndSettle();
+        });
+
+        final Finder richTextFinder = find.byType(RichText);
+        final Iterable<RichText> cells = tester.widgetList(richTextFinder);
+        final bool hasBoldConsult = cells.any((RichText richText) {
+          final InlineSpan span = richText.text;
+          if (span is! TextSpan) {
+            return false;
+          }
+          bool found = false;
+          span.visitChildren((InlineSpan child) {
+            if (child is TextSpan &&
+                child.toPlainText().contains('Consult TP') &&
+                (child.style?.fontWeight == FontWeight.bold || child.style?.fontWeight == FontWeight.w700)) {
+              found = true;
+              return false;
+            }
+            return true;
+          });
+          return found;
+        });
+
+        expect(hasBoldConsult, isTrue);
+      },
+    );
+
+    testWidgets(
       'should work with alignments',
       (WidgetTester tester) async {
         const String data = '|Header 1|Header 2|Header 3|\n|:----|:----:|----:|\n|Col 1|Col 2|Col 3|';
