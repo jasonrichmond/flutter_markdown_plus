@@ -14,7 +14,8 @@ void defineTests() {
     testWidgets(
       'code block',
       (WidgetTester tester) async {
-        const String data = "```\nvoid main() {\n  print('Hello World!');\n}\n```";
+        const String data =
+            "```\nvoid main() {\n  print('Hello World!');\n}\n```";
 
         await tester.pumpWidget(
           boilerplate(
@@ -26,7 +27,8 @@ void defineTests() {
         );
 
         final Iterable<Widget> widgets = tester.allWidgets;
-        final Iterable<SingleChildScrollView> scrollViews = widgets.whereType<SingleChildScrollView>();
+        final Iterable<SingleChildScrollView> scrollViews =
+            widgets.whereType<SingleChildScrollView>();
         expect(scrollViews, isNotEmpty);
         expect(scrollViews.first.controller, isNotNull);
       },
@@ -35,7 +37,8 @@ void defineTests() {
     testWidgets(
       'two code blocks use different scroll controllers',
       (WidgetTester tester) async {
-        const String data = "```\nvoid main() {\n  print('Hello World!');\n}\n```"
+        const String data =
+            "```\nvoid main() {\n  print('Hello World!');\n}\n```"
             '\n'
             "```\nvoid main() {\n  print('Hello World!');\n}\n```";
 
@@ -49,11 +52,13 @@ void defineTests() {
         );
 
         final Iterable<Widget> widgets = tester.allWidgets;
-        final Iterable<SingleChildScrollView> scrollViews = widgets.whereType<SingleChildScrollView>();
+        final Iterable<SingleChildScrollView> scrollViews =
+            widgets.whereType<SingleChildScrollView>();
         expect(scrollViews, hasLength(2));
         expect(scrollViews.first.controller, isNotNull);
         expect(scrollViews.last.controller, isNotNull);
-        expect(scrollViews.first.controller, isNot(equals(scrollViews.last.controller)));
+        expect(scrollViews.first.controller,
+            isNot(equals(scrollViews.last.controller)));
       },
     );
 
@@ -72,7 +77,10 @@ void defineTests() {
         );
 
         double realOffset() {
-          return tester.state<ScrollableState>(find.byType(Scrollable)).position.pixels;
+          return tester
+              .state<ScrollableState>(find.byType(Scrollable))
+              .position
+              .pixels;
         }
 
         expect(controller.offset, equals(209.0));
@@ -118,6 +126,7 @@ void defineTests() {
                 data: data,
                 styleSheet: MarkdownStyleSheet(
                   tableColumnWidth: const FixedColumnWidth(150),
+                  enableInteractiveTable: false,
                 ),
               ),
             ),
@@ -125,7 +134,8 @@ void defineTests() {
         );
 
         final Iterable<Widget> widgets = tester.allWidgets;
-        final Iterable<SingleChildScrollView> scrollViews = widgets.whereType<SingleChildScrollView>();
+        final Iterable<SingleChildScrollView> scrollViews =
+            widgets.whereType<SingleChildScrollView>();
         expect(scrollViews, isNotEmpty);
         expect(scrollViews.first.controller, isNotNull);
       },
@@ -145,6 +155,7 @@ void defineTests() {
                 data: data,
                 styleSheet: MarkdownStyleSheet(
                   tableColumnWidth: const IntrinsicColumnWidth(),
+                  enableInteractiveTable: false,
                 ),
               ),
             ),
@@ -152,7 +163,8 @@ void defineTests() {
         );
 
         final Iterable<Widget> widgets = tester.allWidgets;
-        final Iterable<SingleChildScrollView> scrollViews = widgets.whereType<SingleChildScrollView>();
+        final Iterable<SingleChildScrollView> scrollViews =
+            widgets.whereType<SingleChildScrollView>();
         expect(scrollViews, isNotEmpty);
         expect(scrollViews.first.controller, isNotNull);
       },
@@ -177,6 +189,7 @@ void defineTests() {
                 data: data,
                 styleSheet: MarkdownStyleSheet(
                   tableColumnWidth: const FixedColumnWidth(150),
+                  enableInteractiveTable: false,
                 ),
               ),
             ),
@@ -184,11 +197,13 @@ void defineTests() {
         );
 
         final Iterable<Widget> widgets = tester.allWidgets;
-        final Iterable<SingleChildScrollView> scrollViews = widgets.whereType<SingleChildScrollView>();
+        final Iterable<SingleChildScrollView> scrollViews =
+            widgets.whereType<SingleChildScrollView>();
         expect(scrollViews, hasLength(2));
         expect(scrollViews.first.controller, isNotNull);
         expect(scrollViews.last.controller, isNotNull);
-        expect(scrollViews.first.controller, isNot(equals(scrollViews.last.controller)));
+        expect(scrollViews.first.controller,
+            isNot(equals(scrollViews.last.controller)));
       },
     );
   });

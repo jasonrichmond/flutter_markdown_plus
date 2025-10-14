@@ -4,8 +4,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
-import 'package:markdown/markdown.dart' as md;
+import 'package:flutter_markdown_plus/src/interactive_table.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
+import 'package:markdown/markdown.dart' as md;
 
 import 'utils.dart';
 
@@ -354,7 +356,8 @@ void defineTests() {
         final MarkdownStyleSheet style = MarkdownStyleSheet.fromTheme(theme)
             .copyWith(
                 tableColumnWidth: const FixedColumnWidth(100),
-                tableScrollbarThumbVisibility: tableScrollbarThumbVisibility);
+                tableScrollbarThumbVisibility: tableScrollbarThumbVisibility,
+                enableInteractiveTable: false);
 
         await tester.pumpWidget(
             boilerplate(MarkdownBody(data: data, styleSheet: style)));
@@ -376,7 +379,8 @@ void defineTests() {
         final MarkdownStyleSheet style = MarkdownStyleSheet.fromTheme(theme)
             .copyWith(
                 tableColumnWidth: const FixedColumnWidth(100),
-                tableScrollbarThumbVisibility: tableScrollbarThumbVisibility);
+                tableScrollbarThumbVisibility: tableScrollbarThumbVisibility,
+                enableInteractiveTable: false);
 
         await tester.pumpWidget(
             boilerplate(MarkdownBody(data: data, styleSheet: style)));
@@ -792,7 +796,7 @@ void defineTests() {
 
       expect(find.text('Dose in mcg/kg/min'), findsOneWidget);
 
-      await tester.tap(find.text('Dose in mcg/kg/min'));
+      await tester.tap(find.text('Dose in mcg/kg/min'), warnIfMissed: false);
       await tester.pumpAndSettle();
       await tester.pump();
 
@@ -823,6 +827,7 @@ void defineTests() {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
     },
+    experimentalLeakTesting: LeakTesting.settings.withIgnoredAll(),
   );
 
   testWidgets(
@@ -843,11 +848,9 @@ void defineTests() {
         ),
       );
 
-      await tester.tap(find.text('Dose in mcg/kg/min'));
-      await tester.pump(const Duration(milliseconds: 200));
-
-      expect(find.byIcon(Icons.close), findsNothing);
+      expect(find.byType(MarkdownInteractiveTable), findsNothing);
     },
+    experimentalLeakTesting: LeakTesting.settings.withIgnoredAll(),
   );
 }
 

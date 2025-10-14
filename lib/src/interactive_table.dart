@@ -137,6 +137,7 @@ class _InteractiveTablePageState extends State<_InteractiveTablePage> {
     final MarkdownStyleSheet interactiveSheet = widget.styleSheet.copyWith(
       tableColumnWidth: const IntrinsicColumnWidth(),
       textScaler: TextScaler.linear(_scale),
+      enableInteractiveTable: false,
     );
 
     final Widget bodyScroll = _buildBodyScroll(interactiveSheet);
@@ -155,6 +156,7 @@ class _InteractiveTablePageState extends State<_InteractiveTablePage> {
       onScaleEnd: _handleScaleEnd,
       child: Stack(
         fit: StackFit.expand,
+        clipBehavior: Clip.hardEdge,
         children: <Widget>[
           Positioned.fill(child: bodyScroll),
           ...overlays,
@@ -264,7 +266,7 @@ class _InteractiveTablePageState extends State<_InteractiveTablePage> {
     );
 
     final Widget leftColumnOverlay = Positioned(
-      top: 0,
+      top: _headerHeight!,
       left: 0,
       bottom: 0,
       width: _firstColumnWidth!,
@@ -280,14 +282,16 @@ class _InteractiveTablePageState extends State<_InteractiveTablePage> {
           child: ClipRect(
             clipper: _LeftColumnClipper(
               width: _firstColumnWidth!,
-              headerHeight: _headerHeight!,
             ),
             child: DecoratedBox(
               decoration: BoxDecoration(color: overlayColor),
-              child: SizedBox(
-                width: _tableWidth!,
-                height: _tableHeight!,
-                child: _buildFullTable(sheet),
+              child: Transform.translate(
+                offset: Offset(0, -_headerHeight!),
+                child: SizedBox(
+                  width: _tableWidth!,
+                  height: _tableHeight!,
+                  child: _buildFullTable(sheet),
+                ),
               ),
             ),
           ),
@@ -415,12 +419,14 @@ class _InteractiveTablePageState extends State<_InteractiveTablePage> {
     }
     if (node is RenderObjectWithChildMixin<RenderObject>) {
       final RenderObject? child = node.child;
-      final RenderTable? result = child == null ? null : _locateRenderTable(child);
+      final RenderTable? result =
+          child == null ? null : _locateRenderTable(child);
       if (result != null) {
         return result;
       }
     }
-    if (node is ContainerRenderObjectMixin<RenderObject, ContainerParentDataMixin<RenderObject>>) {
+    if (node is ContainerRenderObjectMixin<RenderObject,
+        ContainerParentDataMixin<RenderObject>>) {
       RenderObject? child = node.firstChild;
       while (child != null) {
         final RenderTable? result = _locateRenderTable(child);
@@ -453,24 +459,21 @@ class _HeaderClipper extends CustomClipper<Rect> {
 class _LeftColumnClipper extends CustomClipper<Rect> {
   _LeftColumnClipper({
     required this.width,
-    required this.headerHeight,
   });
 
   final double width;
-  final double headerHeight;
 
   @override
   Rect getClip(Size size) => Rect.fromLTWH(
         0,
-        math.min(headerHeight, size.height),
+        0,
         math.min(width, size.width),
-        math.max(0, size.height - math.min(headerHeight, size.height)),
+        size.height,
       );
 
   @override
   bool shouldReclip(_LeftColumnClipper oldClipper) =>
-      (oldClipper.width - width).abs() > 0.5 ||
-      (oldClipper.headerHeight - headerHeight).abs() > 0.5;
+      (oldClipper.width - width).abs() > 0.5;
 }
 
 class _TableSummary {

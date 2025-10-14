@@ -478,10 +478,21 @@ class MarkdownBuilder implements md.NodeVisitor {
         if (customChild != null) {
           child = customChild;
         } else {
-          final Table baseTable = _buildTable(tableData);
+          final bool useIntrinsicWidth = styleSheet.enableInteractiveTable &&
+              styleSheet.tableColumnWidth is FlexColumnWidth;
+          final Table baseTable = _buildTable(
+            tableData,
+            columnWidth:
+                useIntrinsicWidth ? const IntrinsicColumnWidth() : null,
+          );
+          final bool requiresHorizontalScroll =
+              !styleSheet.enableInteractiveTable &&
+                  (styleSheet.tableColumnWidth is FixedColumnWidth ||
+                      styleSheet.tableColumnWidth is IntrinsicColumnWidth ||
+                      styleSheet.tableColumnWidth is FlexColumnWidth);
+
           Widget tableWidget;
-          if (styleSheet.tableColumnWidth is FixedColumnWidth ||
-              styleSheet.tableColumnWidth is IntrinsicColumnWidth) {
+          if (requiresHorizontalScroll) {
             tableWidget = _ScrollControllerBuilder(
               builder: (BuildContext context,
                   ScrollController tableScrollController, Widget? child) {
@@ -498,22 +509,15 @@ class MarkdownBuilder implements md.NodeVisitor {
               },
               child: baseTable,
             );
+          } else if (styleSheet.enableInteractiveTable) {
+            tableWidget = _InlineTableWrapper(
+              baseTable: baseTable,
+              tableData: tableData,
+              styleSheet: styleSheet,
+              builderFactory: _createSubBuilder,
+            );
           } else {
             tableWidget = baseTable;
-          }
-
-          if (styleSheet.enableInteractiveTable && tableData.rows.isNotEmpty) {
-            tableWidget = MarkdownInteractiveTable(
-              inlineTable: tableWidget,
-              styleSheet: styleSheet,
-              tableElement: tableData.source,
-              buildElement: (md.Element element,
-                  {MarkdownStyleSheet? overrideStyleSheet}) {
-                final MarkdownBuilder builder =
-                    _createSubBuilder(overrideStyleSheet: overrideStyleSheet);
-                return builder.build(<md.Node>[element]);
-              },
-            );
           }
           child = tableWidget;
         }
