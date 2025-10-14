@@ -1185,11 +1185,7 @@ class _InlineTableWrapperState extends State<_InlineTableWrapper> {
           maxWidth > 0 &&
           baselineWidth > 0 &&
           baselineWidth > maxWidth) {
-        final double threshold =
-            widget.styleSheet.inlineTableMinViewportFraction.clamp(0.0, 1.0);
-        final double minScale = threshold > 0 ? threshold : 0;
-        final double candidateScale = maxWidth / baselineWidth;
-        scale = math.min(1.0, math.max(candidateScale, minScale));
+        scale = maxWidth / baselineWidth;
       }
 
       final Size adjustedSize = Size(baselineWidth, size.height);
@@ -1320,16 +1316,13 @@ class _InlineTableWrapperState extends State<_InlineTableWrapper> {
                   : size.width * scale;
           content = SizedBox(
             width: targetWidth,
-            height: size.height * scale,
-            child: ClipRect(
-              child: Transform.scale(
-                scale: scale,
-                alignment: Alignment.topLeft,
-                child: SizedBox(
-                  width: size.width,
-                  height: size.height,
-                  child: table,
-                ),
+            child: FittedBox(
+              alignment: Alignment.topLeft,
+              fit: BoxFit.scaleDown,
+              child: SizedBox(
+                width: size.width,
+                height: size.height,
+                child: table,
               ),
             ),
           );
@@ -1338,6 +1331,50 @@ class _InlineTableWrapperState extends State<_InlineTableWrapper> {
         if (widget.styleSheet.enableInteractiveTable &&
             widget.tableData.rows.isNotEmpty &&
             scaledDown) {
+          content = Stack(
+            children: [
+              content,
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surface
+                        .withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x20000000),
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(
+                          Icons.open_in_full,
+                          size: 16,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Tap to expand',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+
           final MarkdownStyleSheet overrideSheet =
               widget.styleSheet.copyWith(enableInteractiveTable: false);
           content = MarkdownInteractiveTable(

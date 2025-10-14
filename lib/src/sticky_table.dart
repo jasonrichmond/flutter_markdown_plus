@@ -519,7 +519,10 @@ class RenderStickyTable extends RenderTable {
     int stickyRows,
     int stickyColumns,
     double verticalOffset,
+    double clipWidth,
+    double clipHeight,
   ) {
+    _paintBackgroundRect(context, offset, clipWidth, clipHeight);
     for (int row = 0; row < stickyRows; row += 1) {
       for (int column = stickyColumns; column < columns; column += 1) {
         final RenderBox? child = grid[row][column];
@@ -544,7 +547,10 @@ class RenderStickyTable extends RenderTable {
     int stickyRows,
     int stickyColumns,
     double horizontalOffset,
+    double clipWidth,
+    double clipHeight,
   ) {
+    _paintBackgroundRect(context, offset, clipWidth, clipHeight);
     for (int column = 0; column < stickyColumns; column += 1) {
       for (int row = stickyRows; row < rows; row += 1) {
         final RenderBox? child = grid[row][column];
@@ -570,7 +576,10 @@ class RenderStickyTable extends RenderTable {
     int stickyColumns,
     double horizontalOffset,
     double verticalOffset,
+    double clipWidth,
+    double clipHeight,
   ) {
+    _paintBackgroundRect(context, offset, clipWidth, clipHeight);
     for (int row = 0; row < stickyRows; row += 1) {
       for (int column = 0; column < stickyColumns; column += 1) {
         final RenderBox? child = grid[row][column];
@@ -605,6 +614,20 @@ class RenderStickyTable extends RenderTable {
       context.canvas.drawRect(rect, _backgroundPaint!);
     }
     context.paintChild(child, offset);
+  }
+
+  void _paintBackgroundRect(
+    PaintingContext context,
+    Offset offset,
+    double width,
+    double height,
+  ) {
+    if (_stickyBackgroundColor == null || width <= 0 || height <= 0) {
+      return;
+    }
+    _backgroundPaint ??= Paint()..isAntiAlias = false;
+    _backgroundPaint!.color = _stickyBackgroundColor!;
+    context.canvas.drawRect(Rect.fromLTWH(offset.dx, offset.dy, width, height), _backgroundPaint!);
   }
 
   @override
