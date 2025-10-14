@@ -778,6 +778,77 @@ void defineTests() {
       );
     });
   });
+
+  testWidgets(
+    'interactive table dialog shows sticky overlays',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MarkdownBody(
+            data: _wideTableMarkdown,
+          ),
+        ),
+      );
+
+      expect(find.text('Dose in mcg/kg/min'), findsOneWidget);
+
+      await tester.tap(find.text('Dose in mcg/kg/min'));
+      await tester.pumpAndSettle();
+      await tester.pump();
+
+      expect(find.byIcon(Icons.close), findsOneWidget);
+
+      final Iterable<ClipRect> clips =
+          tester.widgetList<ClipRect>(find.byType(ClipRect));
+      final bool hasHeaderClipper = clips.any(
+        (ClipRect clip) =>
+            clip.clipper != null &&
+            clip.clipper.runtimeType.toString() == '_HeaderClipper',
+      );
+      final bool hasLeftClipper = clips.any(
+        (ClipRect clip) =>
+            clip.clipper != null &&
+            clip.clipper.runtimeType.toString() == '_LeftColumnClipper',
+      );
+
+      expect(hasHeaderClipper, isTrue);
+      expect(hasLeftClipper, isTrue);
+      expect(
+        tester.widgetList<Table>(find.byType(Table)).length,
+        greaterThanOrEqualTo(3),
+      );
+
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'interactive table disabled via style sheet',
+    (WidgetTester tester) async {
+      final ThemeData theme = ThemeData.light().copyWith(textTheme: textTheme);
+      final MarkdownStyleSheet style =
+          MarkdownStyleSheet.fromTheme(theme).copyWith(
+        enableInteractiveTable: false,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MarkdownBody(
+            data: _wideTableMarkdown,
+            styleSheet: style,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Dose in mcg/kg/min'));
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.byIcon(Icons.close), findsNothing);
+    },
+  );
 }
 
 class _StubTableBuilder extends MarkdownElementBuilder {
@@ -794,3 +865,28 @@ class _StubTableBuilder extends MarkdownElementBuilder {
     );
   }
 }
+
+const String _wideTableMarkdown = '''
+| Dose in mcg/kg/min | 0.5 kg | 1 kg | 1.5 kg | 2 kg | 2.5 kg | 3 kg | 3.5 kg | 4 kg | 4.5 kg | 5 kg | 5.5 kg | 6 kg | 6.5 kg | 7 kg | 7.5 kg | 8 kg | 8.5 kg | 9 kg | 9.5 kg | 10 kg |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **0.05** | 0.1 | 0.2 | 0.3 | 0.4 | 0.5 | 0.6 | 0.7 | 0.8 | 0.8 | 0.9 | 1.0 | 1.1 | 1.2 | 1.3 | 1.4 | 2 | 1.6 | 1.7 | 1.8 | 1.9 |
+| **0.1** | 0.2 | 0.4 | 0.6 | 0.8 | 0.9 | 1.1 | 1.3 | 1.5 | 1.7 | 1.9 | 2.1 | 2.3 | 2.4 | 2.6 | 2.8 | 3 | 3.2 | 3.4 | 3.6 | 3.8 |
+| **0.15** | 0.3 | 0.6 | 0.8 | 1.1 | 1.4 | 1.7 | 2 | 2.3 | 2.5 | 2.8 | 3.1 | 3.4 | 3.7 | 3.9 | 4.2 | 4.5 | 4.8 | 5.1 | 5.3 | 5.6 |
+| **0.2** | 0.4 | 0.8 | 1.1 | 1.5 | 1.9 | 2.3 | 2.6 | 3 | 3.4 | 3.8 | 4.1 | 4.5 | 4.9 | 5.3 | 5.6 | 6.0 | 6.4 | 6.8 | 7.1 | 7.5 |
+| **0.25** | 0.5 | 0.9 | 1.4 | 1.9 | 2.3 | 2.8 | 3.3 | 3.8 | 4.2 | 4.7 | 5.2 | 5.6 | 6.1 | 6.6 | 7 | 7.5 | 8 | 8.4 | 8.9 | 9.4 |
+| **0.3** | 0.6 | 1.1 | 1.7 | 2.3 | 2.8 | 3.4 | 3.9 | 4.5 | 5.1 | 5.6 | 6.2 | 6.8 | 7.3 | 7.9 | 8.4 | 9 | 9.6 | 10.1 | 10.7 | 11.3 |
+| **0.35** | 0.7 | 1.3 | 2 | 2.6 | 3.3 | 3.9 | 4.6 | 5.3 | 5.9 | 6.6 | 7.2 | 7.9 | 8.5 | 9.2 | 9.8 | 10.5 | 11.2 | 11.8 | 12.5 | 13.1 |
+| **0.4** | 0.8 | 1.5 | 2.3 | 3 | 3.8 | 4.5 | 5.3 | 6 | 6.8 | 7.5 | 8.3 | 9 | 9.8 | 10.5 | 11.3 | 12 | 12.8 | 13.5 | 14.3 | 15 |
+| **0.45** | 0.8 | 1.7 | 2.5 | 3.4 | 4.2 | 5.1 | 5.9 | 6.8 | 7.6 | 8.4 | 9.3 | 10.1 | 11 | 11.8 | 12.7 | 13.5 | 14.3 | 15.2 | 16 | 16.9 |
+| **0.5** | 0.9 | 1.9 | 2.8 | 3.8 | 4.7 | 5.6 | 6.6 | 7.5 | 8.4 | 9.4 | 10.3 | 11.3 | 12.2 | 13.1 | 14.1 | 15 | 15.9 | 16.9 | 17.8 | 18.8 |
+| **0.55** | 1 | 2.1 | 3.1 | 4.1 | 5.2 | 6.2 | 7.2 | 8.3 | 9.3 | 10.3 | 11.3 | 12.4 | 13.4 | 14.4 | 15.5 | 16.5 | 17.5 | 18.6 | 19.6 | 20.6 |
+| **0.6** | 1.1 | 2.3 | 3.4 | 4.5 | 5.6 | 6.8 | 7.9 | 9 | 10.1 | 11.3 | 12.4 | 13.5 | 14.6 | 15.8 | 16.9 | 18 | 19.1 | 20.3 | 21.4 | 22.5 |
+| **0.65** | 1.2 | 2.4 | 3.7 | 4.9 | 6.1 | 7.3 | 8.5 | 9.8 | 11 | 12.2 | 13.4 | 14.6 | 15.8 | 17.1 | 18.3 | 19.5 | 20.7 | 21.9 | 23.2 | 24.4 |
+| **0.7** | 1.3 | 2.6 | 3.9 | 5.3 | 6.6 | 7.9 | 9.2 | 10.5 | 11.8 | 13.1 | 14.4 | 15.8 | 17.1 | 18.4 | 19.7 | 21 | 22.3 | 23.6 | 24.9 | 26.3 |
+| **0.75** | 1.4 | 2.8 | 4.2 | 5.6 | 7 | 8.4 | 9.8 | 11.3 | 12.7 | 14.1 | 15.5 | 16.9 | 18.3 | 19.7 | 21.1 | 22.5 | 23.9 | 25.3 | 26.7 | 28.1 |
+| **0.8** | 1.5 | 3 | 4.5 | 6 | 7.5 | 9 | 10.5 | 12 | 13.5 | 15 | 16.5 | 18 | 19.5 | 21 | 22.5 | 24 | 25.5 | 27 | 28.5 | 30 |
+| **0.85** | 1.6 | 3.2 | 4.8 | 6.4 | 8 | 9.6 | 11.2 | 12.8 | 14.3 | 15.9 | 17.5 | 19.1 | 20.7 | 22.3 | 23.9 | 25.5 | 27.1 | 28.7 | 30.3 | 31.9 |
+| **0.9** | 1.7 | 3.4 | 5.1 | 6.8 | 8.4 | 10.1 | 11.8 | 13.5 | 15.2 | 16.9 | 18.6 | 20.3 | 21.9 | 23.6 | 25.3 | 27 | 28.7 | 30.4 | 32.1 | 33.8 |
+| **0.95** | 1.8 | 3.6 | 5.3 | 7.1 | 8.9 | 10.7 | 12.5 | 14.3 | 16 | 17.8 | 19.6 | 21.4 | 23.2 | 24.9 | 26.7 | 28.5 | 30.3 | 32.1 | 33.8 | 35.6 |
+| **1** | 1.9 | 3.8 | 5.6 | 7.5 | 9.4 | 11.3 | 13.1 | 15 | 16.9 | 18.8 | 20.6 | 22.5 | 24.4 | 26.3 | 28.1 | 30 | 31.9 | 33.8 | 35.6 | 37.5 |
+''';

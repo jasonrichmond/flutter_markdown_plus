@@ -7,8 +7,22 @@ import 'package:flutter/material.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import '_functions_io.dart' if (dart.library.js_interop) '_functions_web.dart';
+import 'interactive_table.dart';
 import 'style_sheet.dart';
 import 'widget.dart';
+
+md.Node _cloneMarkdownNode(md.Node node) {
+  if (node is md.Text) {
+    return md.Text(node.text);
+  }
+  if (node is md.Element) {
+    final md.Element clone =
+        md.Element(node.tag, node.children?.map(_cloneMarkdownNode).toList());
+    clone.attributes.addAll(node.attributes);
+    return clone;
+  }
+  return node;
+}
 
 final List<String> _kBlockTags = <String>[
   'p',
@@ -47,6 +61,9 @@ class _BlockElement {
 }
 
 class _TableElement {
+  _TableElement({required this.source});
+
+  final md.Element source;
   final List<TableRow> rows = <TableRow>[];
 }
 
@@ -233,15 +250,17 @@ class MarkdownBuilder implements md.NodeVisitor {
       } else if (tag == 'blockquote') {
         _isInBlockquote = true;
       } else if (tag == 'table') {
-        _tables.add(_TableElement());
+        final md.Element cloned = _cloneMarkdownNode(element) as md.Element;
+        _tables.add(_TableElement(source: cloned));
       } else if (tag == 'tr') {
-        final int length = _tables.single.rows.length;
+        final _TableElement currentTable = _tables.single;
+        final int length = currentTable.rows.length;
         BoxDecoration? decoration =
             styleSheet.tableCellsDecoration as BoxDecoration?;
         if (length == 0 || length.isOdd) {
           decoration = null;
         }
-        _tables.single.rows.add(TableRow(
+        currentTable.rows.add(TableRow(
           decoration: decoration,
           // TODO(stuartmorgan): This should be fixed, not suppressed; enabling
           // this lint warning exposed that the builder is modifying the
@@ -451,30 +470,52 @@ class MarkdownBuilder implements md.NodeVisitor {
           );
         }
       } else if (tag == 'table') {
-        if (customChild != null) {
-          if (_tables.isNotEmpty) {
-            _tables.removeLast();
-          }
-        } else if (styleSheet.tableColumnWidth is FixedColumnWidth ||
-            styleSheet.tableColumnWidth is IntrinsicColumnWidth) {
-          child = _ScrollControllerBuilder(
-            builder: (BuildContext context,
-                ScrollController tableScrollController, Widget? child) {
-              return Scrollbar(
-                controller: tableScrollController,
-                thumbVisibility: styleSheet.tableScrollbarThumbVisibility,
-                child: SingleChildScrollView(
-                  controller: tableScrollController,
-                  scrollDirection: Axis.horizontal,
-                  padding: styleSheet.tablePadding,
-                  child: child,
-                ),
+        final _TableElement tableData = _tables.isNotEmpty
+            ? _tables.removeLast()
+            : _TableElement(
+                source: md.Element('table', <md.Node>[]),
               );
-            },
-            child: _buildTable(),
-          );
+        if (customChild != null) {
+          child = customChild;
         } else {
-          child = _buildTable();
+          final Table baseTable = _buildTable(tableData);
+          Widget tableWidget;
+          if (styleSheet.tableColumnWidth is FixedColumnWidth ||
+              styleSheet.tableColumnWidth is IntrinsicColumnWidth) {
+            tableWidget = _ScrollControllerBuilder(
+              builder: (BuildContext context,
+                  ScrollController tableScrollController, Widget? child) {
+                return Scrollbar(
+                  controller: tableScrollController,
+                  thumbVisibility: styleSheet.tableScrollbarThumbVisibility,
+                  child: SingleChildScrollView(
+                    controller: tableScrollController,
+                    scrollDirection: Axis.horizontal,
+                    padding: styleSheet.tablePadding,
+                    child: child,
+                  ),
+                );
+              },
+              child: baseTable,
+            );
+          } else {
+            tableWidget = baseTable;
+          }
+
+          if (styleSheet.enableInteractiveTable && tableData.rows.isNotEmpty) {
+            tableWidget = MarkdownInteractiveTable(
+              inlineTable: tableWidget,
+              styleSheet: styleSheet,
+              tableElement: tableData.source,
+              buildElement: (md.Element element,
+                  {MarkdownStyleSheet? overrideStyleSheet}) {
+                final MarkdownBuilder builder =
+                    _createSubBuilder(overrideStyleSheet: overrideStyleSheet);
+                return builder.build(<md.Node>[element]);
+              },
+            );
+          }
+          child = tableWidget;
         }
       } else if (tag == 'blockquote') {
         _isInBlockquote = false;
@@ -550,7 +591,8 @@ class MarkdownBuilder implements md.NodeVisitor {
           _mergeInlineChildren(current.children, align),
           textAlign: align,
         );
-        _tables.single.rows.last.children.add(child);
+        final _TableElement currentTable = _tables.single;
+        currentTable.rows.last.children.add(child);
       } else if (tag == 'a') {
         _linkHandlers.removeLast();
       } else if (tag == 'sup') {
@@ -590,12 +632,31 @@ class MarkdownBuilder implements md.NodeVisitor {
     _lastVisitedTag = tag;
   }
 
-  Table _buildTable() {
+  Table _buildTable(_TableElement tableData) {
     return Table(
       defaultColumnWidth: styleSheet.tableColumnWidth!,
       defaultVerticalAlignment: styleSheet.tableVerticalAlignment,
       border: styleSheet.tableBorder,
-      children: _tables.removeLast().rows,
+      children: tableData.rows,
+    );
+  }
+
+  MarkdownBuilder _createSubBuilder({MarkdownStyleSheet? overrideStyleSheet}) {
+    return MarkdownBuilder(
+      delegate: delegate,
+      selectable: selectable,
+      styleSheet: overrideStyleSheet ?? styleSheet,
+      imageDirectory: imageDirectory,
+      imageBuilder: imageBuilder,
+      checkboxBuilder: checkboxBuilder,
+      bulletBuilder: bulletBuilder,
+      builders: builders,
+      paddingBuilders: paddingBuilders,
+      listItemCrossAxisAlignment: listItemCrossAxisAlignment,
+      fitContent: fitContent,
+      onSelectionChanged: onSelectionChanged,
+      onTapText: onTapText,
+      softLineBreak: softLineBreak,
     );
   }
 
