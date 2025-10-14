@@ -43,7 +43,7 @@ class MarkdownStyleSheet {
     this.tableColumnWidth,
     this.tableScrollbarThumbVisibility,
     this.inlineTableMinColumnWidth = 100.0,
-    this.inlineTableMinViewportFraction = 0.25,
+    this.inlineTableMinViewportFraction = 0.5,
     this.interactiveTableStickyColumnMaxViewportFraction = 1.0,
     this.tableCellsPadding,
     this.tableCellsDecoration,

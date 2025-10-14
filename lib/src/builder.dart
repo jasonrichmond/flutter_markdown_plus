@@ -1185,12 +1185,11 @@ class _InlineTableWrapperState extends State<_InlineTableWrapper> {
           maxWidth > 0 &&
           baselineWidth > 0 &&
           baselineWidth > maxWidth) {
-        final double candidateScale = maxWidth / baselineWidth;
         final double threshold =
             widget.styleSheet.inlineTableMinViewportFraction.clamp(0.0, 1.0);
-        if (threshold == 0 || candidateScale < threshold) {
-          scale = candidateScale;
-        }
+        final double minScale = threshold > 0 ? threshold : 0;
+        final double candidateScale = maxWidth / baselineWidth;
+        scale = math.min(1.0, math.max(candidateScale, minScale));
       }
 
       final Size adjustedSize = Size(baselineWidth, size.height);
@@ -1284,8 +1283,11 @@ class _InlineTableWrapperState extends State<_InlineTableWrapper> {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final double? maxWidth = _resolveMaxWidth(constraints, context);
-        if (_tableSize == null || _lastMaxWidth != maxWidth) {
-          _scheduleMeasurement(maxWidth);
+        final double? effectiveMaxWidth = maxWidth;
+        if (_tableSize == null ||
+            _lastMaxWidth != effectiveMaxWidth ||
+            _scale == null) {
+          _scheduleMeasurement(effectiveMaxWidth);
         }
 
         final Widget table = KeyedSubtree(
