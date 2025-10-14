@@ -522,8 +522,23 @@ class RenderStickyTable extends RenderTable {
     double clipWidth,
     double clipHeight,
   ) {
-    _paintBackgroundRect(context, offset, clipWidth, clipHeight);
+    _paintBackgroundRect(
+      context,
+      offset.dx + _viewport.horizontalOffset,
+      offset.dy + verticalOffset,
+      clipWidth,
+      clipHeight,
+    );
     for (int row = 0; row < stickyRows; row += 1) {
+      final Rect rowRect = getRowBox(row);
+      final double top = offset.dy + rowRect.top + verticalOffset;
+      _paintBackgroundRect(
+        context,
+        offset.dx + _viewport.horizontalOffset,
+        top,
+        clipWidth,
+        rowRect.height,
+      );
       for (int column = stickyColumns; column < columns; column += 1) {
         final RenderBox? child = grid[row][column];
         if (child == null) {
@@ -535,7 +550,7 @@ class RenderStickyTable extends RenderTable {
         if (verticalOffset != 0) {
           childOffset = childOffset.translate(0, verticalOffset);
         }
-        _paintChildWithBackground(context, child, childOffset);
+        context.paintChild(child, childOffset);
       }
     }
   }
@@ -550,7 +565,6 @@ class RenderStickyTable extends RenderTable {
     double clipWidth,
     double clipHeight,
   ) {
-    _paintBackgroundRect(context, offset, clipWidth, clipHeight);
     for (int column = 0; column < stickyColumns; column += 1) {
       for (int row = stickyRows; row < rows; row += 1) {
         final RenderBox? child = grid[row][column];
@@ -563,7 +577,15 @@ class RenderStickyTable extends RenderTable {
         if (horizontalOffset != 0) {
           childOffset = childOffset.translate(horizontalOffset, 0);
         }
-        _paintChildWithBackground(context, child, childOffset);
+        final Rect rowRect = getRowBox(row);
+        _paintBackgroundRect(
+          context,
+          offset.dx + horizontalOffset,
+          offset.dy + rowRect.top,
+          clipWidth,
+          rowRect.height,
+        );
+        context.paintChild(child, childOffset);
       }
     }
   }
@@ -579,7 +601,13 @@ class RenderStickyTable extends RenderTable {
     double clipWidth,
     double clipHeight,
   ) {
-    _paintBackgroundRect(context, offset, clipWidth, clipHeight);
+    _paintBackgroundRect(
+      context,
+      offset.dx + horizontalOffset,
+      offset.dy + verticalOffset,
+      clipWidth,
+      clipHeight,
+    );
     for (int row = 0; row < stickyRows; row += 1) {
       for (int column = 0; column < stickyColumns; column += 1) {
         final RenderBox? child = grid[row][column];
@@ -595,30 +623,25 @@ class RenderStickyTable extends RenderTable {
         if (verticalOffset != 0) {
           childOffset = childOffset.translate(0, verticalOffset);
         }
-        _paintChildWithBackground(context, child, childOffset);
+        final Rect rowRect = getRowBox(row);
+        _paintBackgroundRect(
+          context,
+          offset.dx + horizontalOffset,
+          offset.dy + rowRect.top + verticalOffset,
+          clipWidth,
+          rowRect.height,
+        );
+        context.paintChild(child, childOffset);
       }
     }
   }
 
   Paint? _backgroundPaint;
 
-  void _paintChildWithBackground(
-    PaintingContext context,
-    RenderBox child,
-    Offset offset,
-  ) {
-    if (_stickyBackgroundColor != null) {
-      _backgroundPaint ??= Paint()..isAntiAlias = false;
-      _backgroundPaint!.color = _stickyBackgroundColor!;
-      final Rect rect = offset & child.size;
-      context.canvas.drawRect(rect, _backgroundPaint!);
-    }
-    context.paintChild(child, offset);
-  }
-
   void _paintBackgroundRect(
     PaintingContext context,
-    Offset offset,
+    double left,
+    double top,
     double width,
     double height,
   ) {
@@ -627,7 +650,10 @@ class RenderStickyTable extends RenderTable {
     }
     _backgroundPaint ??= Paint()..isAntiAlias = false;
     _backgroundPaint!.color = _stickyBackgroundColor!;
-    context.canvas.drawRect(Rect.fromLTWH(offset.dx, offset.dy, width, height), _backgroundPaint!);
+    context.canvas.drawRect(
+      Rect.fromLTWH(left, top, width, height),
+      _backgroundPaint!,
+    );
   }
 
   @override
@@ -668,7 +694,7 @@ class RenderStickyTable extends RenderTable {
           clipRect,
           (PaintingContext context, Offset clipOffset) {
             _paintStickyRows(context, clipOffset, grid, stickyRows,
-                stickyColumns, verticalOffset);
+                stickyColumns, verticalOffset, availableWidth, stickyHeight);
           },
           clipBehavior: Clip.hardEdge,
         );
@@ -696,7 +722,7 @@ class RenderStickyTable extends RenderTable {
           clipRect,
           (PaintingContext context, Offset clipOffset) {
             _paintStickyColumns(context, clipOffset, grid, stickyRows,
-                stickyColumns, horizontalOffset);
+                stickyColumns, horizontalOffset, stickyWidth, availableHeight);
           },
           clipBehavior: Clip.hardEdge,
         );
@@ -733,6 +759,8 @@ class RenderStickyTable extends RenderTable {
               stickyColumns,
               horizontalOffset,
               verticalOffset,
+              stickyWidth,
+              stickyHeight,
             );
           },
           clipBehavior: Clip.hardEdge,
