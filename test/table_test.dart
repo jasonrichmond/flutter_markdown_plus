@@ -786,13 +786,32 @@ void defineTests() {
   testWidgets(
     'interactive table dialog shows sticky overlays',
     (WidgetTester tester) async {
+      final binding = tester.binding;
+      binding.window.physicalSizeTestValue = const Size(400, 800);
+      binding.window.devicePixelRatioTestValue = 1.0;
+      addTearDown(() {
+        binding.window.clearPhysicalSizeTestValue();
+        binding.window.clearDevicePixelRatioTestValue();
+      });
+
       await tester.pumpWidget(
         MaterialApp(
-          home: MarkdownBody(
-            data: _wideTableMarkdown,
+          home: MediaQuery(
+            data: const MediaQueryData(size: Size(400, 800)),
+            child: Center(
+              child: SizedBox(
+                key: const ValueKey('tableViewport'),
+                width: 400,
+                height: 800,
+                child: MarkdownBody(
+                  data: _wideTableMarkdown,
+                ),
+              ),
+            ),
           ),
         ),
       );
+      await tester.pump();
 
       expect(find.text('Dose in mcg/kg/min'), findsOneWidget);
 

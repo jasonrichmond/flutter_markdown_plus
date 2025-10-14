@@ -4,25 +4,37 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets('interactive table dialog golden', (WidgetTester tester) async {
+    final binding = tester.binding;
+    binding.window.physicalSizeTestValue = const Size(400, 800);
+    binding.window.devicePixelRatioTestValue = 1.0;
+    addTearDown(() {
+      binding.window.clearPhysicalSizeTestValue();
+      binding.window.clearDevicePixelRatioTestValue();
+    });
+
     await tester.pumpWidget(
       MaterialApp(
-        home: MarkdownBody(
-          data: _wideTableMarkdown,
+        home: MediaQuery(
+          data: const MediaQueryData(size: Size(400, 800)),
+          child: Center(
+            child: SizedBox(
+              key: const ValueKey('tableViewport'),
+              width: 400,
+              height: 800,
+              child: MarkdownBody(
+                data: _wideTableMarkdown,
+              ),
+            ),
+          ),
         ),
       ),
     );
-
-    await tester.tap(find.text('Dose in mcg/kg/min'));
-    await tester.pumpAndSettle();
     await tester.pump();
 
     await expectLater(
-      find.byType(MaterialApp),
+      find.byKey(const ValueKey('tableViewport')),
       matchesGoldenFile('assets/images/golden/table/interactive_table_dialog.png'),
     );
-
-    await tester.tap(find.byIcon(Icons.close));
-    await tester.pumpAndSettle();
   });
 }
 

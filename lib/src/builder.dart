@@ -636,9 +636,12 @@ class MarkdownBuilder implements md.NodeVisitor {
     _lastVisitedTag = tag;
   }
 
-  Table _buildTable(_TableElement tableData) {
+  Table _buildTable(
+    _TableElement tableData, {
+    TableColumnWidth? columnWidth,
+  }) {
     return Table(
-      defaultColumnWidth: styleSheet.tableColumnWidth!,
+      defaultColumnWidth: columnWidth ?? styleSheet.tableColumnWidth!,
       defaultVerticalAlignment: styleSheet.tableVerticalAlignment,
       border: styleSheet.tableBorder,
       children: tableData.rows,
@@ -1099,5 +1102,189 @@ class _ScrollControllerBuilderState extends State<_ScrollControllerBuilder> {
   @override
   Widget build(BuildContext context) {
     return widget.builder(context, _controller, widget.child);
+  }
+}
+
+class _InlineTableWrapper extends StatefulWidget {
+  const _InlineTableWrapper({
+    required this.baseTable,
+    required this.tableData,
+    required this.styleSheet,
+    required this.builderFactory,
+  });
+
+  final Table baseTable;
+  final _TableElement tableData;
+  final MarkdownStyleSheet styleSheet;
+  final MarkdownBuilder Function({MarkdownStyleSheet? overrideStyleSheet})
+      builderFactory;
+
+  @override
+  State<_InlineTableWrapper> createState() => _InlineTableWrapperState();
+}
+
+class _InlineTableWrapperState extends State<_InlineTableWrapper> {
+  final GlobalKey _tableKey = GlobalKey();
+  double? _scale;
+  Size? _tableSize;
+  double? _lastMaxWidth;
+
+  int get _columnCount {
+    if (widget.tableData.rows.isNotEmpty) {
+      final TableRow firstRow = widget.tableData.rows.first;
+      return firstRow.children.length;
+    }
+    final md.Element source = widget.tableData.source;
+    int maxColumns = 0;
+    for (final md.Node node in source.children ?? const <md.Node>[]) {
+      if (node is md.Element && node.tag.toLowerCase() == 'tr') {
+        int count = 0;
+        for (final md.Node child in node.children ?? const <md.Node>[]) {
+          if (child is md.Element) {
+            final tag = child.tag.toLowerCase();
+            if (tag == 'td' || tag == 'th') {
+              count++;
+            }
+          }
+        }
+        if (count > maxColumns) {
+          maxColumns = count;
+        }
+      }
+    }
+    return maxColumns;
+  }
+
+  void _scheduleMeasurement(double? maxWidth) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final context = _tableKey.currentContext;
+      if (context == null) return;
+      final size = context.size;
+      if (size == null) return;
+
+      double scale = 1.0;
+      double naturalWidth = size.width;
+      final int columns = _columnCount;
+      if (maxWidth != null && maxWidth > 0) {
+        if (columns > 0) {
+          final double minDesiredWidth = columns * 100.0;
+          if (maxWidth < minDesiredWidth) {
+            scale = maxWidth / minDesiredWidth;
+            naturalWidth = minDesiredWidth;
+          } else if (naturalWidth > maxWidth) {
+            scale = maxWidth / naturalWidth;
+          }
+        } else if (naturalWidth > maxWidth) {
+          scale = maxWidth / naturalWidth;
+        }
+      }
+
+      final Size adjustedSize = Size(naturalWidth, size.height);
+      if (_scale != scale ||
+          _tableSize != adjustedSize ||
+          _lastMaxWidth != maxWidth) {
+        setState(() {
+          _scale = scale;
+          _tableSize = adjustedSize;
+          _lastMaxWidth = maxWidth;
+        });
+      }
+    });
+  }
+
+  double? _resolveMaxWidth(BoxConstraints constraints, BuildContext context) {
+    if (constraints.hasBoundedWidth) {
+      return constraints.maxWidth;
+    }
+    final double mediaWidth = MediaQuery.sizeOf(context).width;
+    return mediaWidth.isFinite ? mediaWidth : null;
+  }
+
+  @override
+  void didUpdateWidget(covariant _InlineTableWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.baseTable != widget.baseTable) {
+      _scale = null;
+      _tableSize = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double? maxWidth = _resolveMaxWidth(constraints, context);
+        if (_tableSize == null || _lastMaxWidth != maxWidth) {
+          _scheduleMeasurement(maxWidth);
+        }
+
+        final Widget table = KeyedSubtree(
+          key: _tableKey,
+          child: IntrinsicWidth(
+            child: IntrinsicHeight(
+              child: widget.baseTable,
+            ),
+          ),
+        );
+
+        final double scale = _scale ?? 1.0;
+        final bool scaledDown = scale < 0.999;
+
+        Widget content;
+        if (!scaledDown || _tableSize == null) {
+          if (_lastMaxWidth != null && _lastMaxWidth!.isFinite) {
+            content = SizedBox(
+              width: _lastMaxWidth!,
+              child: table,
+            );
+          } else {
+            content = table;
+          }
+        } else {
+          final Size size = _tableSize!;
+          final double targetWidth =
+              _lastMaxWidth != null && _lastMaxWidth!.isFinite
+                  ? _lastMaxWidth!
+                  : size.width * scale;
+          content = SizedBox(
+            width: targetWidth,
+            height: size.height * scale,
+            child: ClipRect(
+              child: Transform.scale(
+                scale: scale,
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: size.width,
+                  height: size.height,
+                  child: table,
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (widget.styleSheet.enableInteractiveTable &&
+            widget.tableData.rows.isNotEmpty &&
+            scaledDown) {
+          final MarkdownStyleSheet overrideSheet =
+              widget.styleSheet.copyWith(enableInteractiveTable: false);
+          content = MarkdownInteractiveTable(
+            inlineTable: content,
+            styleSheet: overrideSheet,
+            tableElement: widget.tableData.source,
+            buildElement: (md.Element element,
+                {MarkdownStyleSheet? overrideStyleSheet}) {
+              final MarkdownBuilder builder = widget.builderFactory(
+                overrideStyleSheet: overrideStyleSheet ?? overrideSheet,
+              );
+              return builder.build(<md.Node>[element]);
+            },
+          );
+        }
+
+        return content;
+      },
+    );
   }
 }
