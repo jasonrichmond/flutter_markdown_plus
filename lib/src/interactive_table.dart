@@ -1,10 +1,11 @@
-import 'dart:math' as math;
-
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:markdown/markdown.dart' as md;
 
+import 'sticky_table.dart';
 import 'style_sheet.dart';
 
 typedef MarkdownTableElementBuilder = List<Widget> Function(
@@ -94,39 +95,82 @@ class _InteractiveTablePage extends StatefulWidget {
 class _InteractiveTablePageState extends State<_InteractiveTablePage> {
   final ScrollController _horizontalController = ScrollController();
   final ScrollController _verticalController = ScrollController();
-  final ValueNotifier<double> _horizontalOffset = ValueNotifier<double>(0);
-  final ValueNotifier<double> _verticalOffset = ValueNotifier<double>(0);
+  final ValueNotifier<StickyTableViewport> _viewportNotifier =
+      ValueNotifier<StickyTableViewport>(StickyTableViewport.zero);
   final GlobalKey _tableKey = GlobalKey();
 
   double _scale = 1;
   double _initialScale = 1;
   bool _isScaling = false;
-  bool _scheduledMeasurement = false;
-
-  double? _tableWidth;
-  double? _tableHeight;
-  double? _headerHeight;
-  double? _firstColumnWidth;
   bool _closing = false;
 
   @override
   void initState() {
     super.initState();
-    _horizontalController.addListener(
-      () => _horizontalOffset.value = _horizontalController.offset,
-    );
-    _verticalController.addListener(
-      () => _verticalOffset.value = _verticalController.offset,
-    );
+    _horizontalController.addListener(_handleScrollChanged);
+    _verticalController.addListener(_handleScrollChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateViewport());
   }
 
   @override
   void dispose() {
+    _horizontalController.removeListener(_handleScrollChanged);
+    _verticalController.removeListener(_handleScrollChanged);
     _horizontalController.dispose();
     _verticalController.dispose();
-    _horizontalOffset.dispose();
-    _verticalOffset.dispose();
+    _viewportNotifier.dispose();
     super.dispose();
+  }
+
+  void _handleScrollChanged() {
+    _updateViewport();
+  }
+
+  void _updateViewport() {
+    if (!mounted) {
+      return;
+    }
+    final bool hasHorizontal = _horizontalController.hasClients &&
+        _horizontalController.position.maxScrollExtent > 0;
+    final bool hasVertical = _verticalController.hasClients &&
+        _verticalController.position.maxScrollExtent > 0;
+    final StickyTableViewport next = StickyTableViewport(
+      horizontalOffset:
+          _horizontalController.hasClients ? _horizontalController.offset : 0,
+      verticalOffset:
+          _verticalController.hasClients ? _verticalController.offset : 0,
+      viewportWidth: _horizontalController.hasClients
+          ? _horizontalController.position.viewportDimension
+          : null,
+      viewportHeight: _verticalController.hasClients
+          ? _verticalController.position.viewportDimension
+          : null,
+      horizontalGutter:
+          hasVertical ? _resolveScrollbarThickness(Axis.vertical) : 0,
+      verticalGutter:
+          hasHorizontal ? _resolveScrollbarThickness(Axis.horizontal) : 0,
+    );
+    if (_viewportNotifier.value != next) {
+      _viewportNotifier.value = next;
+    }
+  }
+
+  double _resolveScrollbarThickness(Axis axis) {
+    final ScrollbarThemeData theme = ScrollbarTheme.of(context);
+    final double? themed = theme.thickness?.resolve(const <MaterialState>{});
+    if (themed != null) {
+      return themed;
+    }
+    final TargetPlatform platform = Theme.of(context).platform;
+    switch (platform) {
+      case TargetPlatform.android:
+        return 4.0;
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return CupertinoScrollbar.defaultThickness;
+      default:
+        return 8.0;
+    }
   }
 
   @override
@@ -135,49 +179,176 @@ class _InteractiveTablePageState extends State<_InteractiveTablePage> {
     final bool canStick =
         _TableSummary.fromElement(widget.tableElement).supportsSticky;
     final MarkdownStyleSheet interactiveSheet = widget.styleSheet.copyWith(
-      tableColumnWidth: const IntrinsicColumnWidth(),
+      tableColumnWidth: const _IntrinsicDelegateColumnWidth(),
       textScaler: TextScaler.linear(_scale),
       enableInteractiveTable: false,
     );
 
-    final Widget bodyScroll = _buildBodyScroll(interactiveSheet);
-    final List<Widget> overlays = <Widget>[
-      if (canStick) ..._buildStickyOverlays(interactiveSheet),
-    ];
+    final _TableBuildResult tableResult = _buildTable(interactiveSheet);
+    final int stickyRows = canStick ? 1 : 0;
+    final int stickyColumns = canStick ? 1 : 0;
 
-    if (canStick) {
-      _scheduleMeasurement();
-    }
+    final double stickyColumnMaxFraction =
+        widget.styleSheet.interactiveTableStickyColumnMaxViewportFraction;
 
-    final Widget content = GestureDetector(
+    final Widget body = GestureDetector(
       behavior: HitTestBehavior.translucent,
       onScaleStart: _handleScaleStart,
       onScaleUpdate: _handleScaleUpdate,
       onScaleEnd: _handleScaleEnd,
-      child: Stack(
-        fit: StackFit.expand,
-        clipBehavior: Clip.hardEdge,
-        children: <Widget>[
-          Positioned.fill(child: bodyScroll),
-          ...overlays,
-        ],
+      child: Semantics(
+        label: 'Expanded table view',
+        hint: 'Scroll or pinch to explore. Press escape to close.',
+        container: true,
+        child: canStick && tableResult.table != null
+            ? _buildStickyScroll(
+                tableResult.table!,
+                stickyRows,
+                stickyColumns,
+                stickyColumnMaxFraction,
+              )
+            : _buildFallbackScroll(tableResult.widget),
       ),
     );
 
     return SafeArea(
-      child: Material(
-        color: theme.colorScheme.surface,
-        child: Column(
-          children: [
-            _InteractiveTableHeader(
-              onClose: _requestClose,
+      child: Shortcuts(
+        shortcuts: <LogicalKeySet, Intent>{
+          LogicalKeySet(LogicalKeyboardKey.escape): DismissIntent(),
+        },
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            DismissIntent: CallbackAction<DismissIntent>(
+              onInvoke: (_) {
+                _requestClose();
+                return null;
+              },
             ),
-            const Divider(height: 1),
-            Expanded(child: content),
-          ],
+          },
+          child: FocusScope(
+            autofocus: true,
+            child: Material(
+              color: theme.colorScheme.surface,
+              child: Column(
+                children: [
+                  _InteractiveTableHeader(
+                    onClose: _requestClose,
+                  ),
+                  const Divider(height: 1),
+                  Expanded(child: body),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
+  }
+
+  _TableBuildResult _buildTable(MarkdownStyleSheet sheet) {
+    final List<Widget> built = widget.buildElement(
+      widget.tableElement,
+      overrideStyleSheet: sheet,
+    );
+    final Widget widgetResult =
+        built.isNotEmpty ? built.first : const SizedBox.shrink();
+    final Table? table = widgetResult is Table ? widgetResult : null;
+    return _TableBuildResult(table: table, widget: widgetResult);
+  }
+
+  Widget _buildFallbackScroll(Widget content) {
+    return Scrollbar(
+      controller: _verticalController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _verticalController,
+        scrollDirection: Axis.vertical,
+        child: Scrollbar(
+          controller: _horizontalController,
+          thumbVisibility: true,
+          notificationPredicate: (ScrollNotification notification) =>
+              notification.metrics.axis == Axis.horizontal,
+          child: SingleChildScrollView(
+            controller: _horizontalController,
+            scrollDirection: Axis.horizontal,
+            child: content,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStickyScroll(
+    Table table,
+    int stickyRows,
+    int stickyColumns,
+    double stickyColumnMaxFraction,
+  ) {
+    final Widget sticky = ValueListenableBuilder<StickyTableViewport>(
+      valueListenable: _viewportNotifier,
+      child: null,
+      builder: (BuildContext context, StickyTableViewport viewport, Widget? _) {
+        return StickyTable(
+          key: _tableKey,
+          children: table.children,
+          columnWidths: table.columnWidths,
+          defaultColumnWidth: table.defaultColumnWidth,
+          textDirection: table.textDirection ?? Directionality.of(context),
+          border: table.border,
+          defaultVerticalAlignment: table.defaultVerticalAlignment,
+          textBaseline: table.textBaseline,
+          stickyRowCount: stickyRows,
+          stickyColumnCount: stickyColumns,
+          viewport: viewport,
+          stickyColumnMaxFraction: stickyColumnMaxFraction,
+          stickyBackgroundColor: Theme.of(context).colorScheme.surface,
+        );
+      },
+    );
+
+    return Scrollbar(
+      controller: _verticalController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _verticalController,
+        scrollDirection: Axis.vertical,
+        child: Scrollbar(
+          controller: _horizontalController,
+          thumbVisibility: true,
+          notificationPredicate: (ScrollNotification notification) =>
+              notification.metrics.axis == Axis.horizontal,
+          child: SingleChildScrollView(
+            controller: _horizontalController,
+            scrollDirection: Axis.horizontal,
+            child: sticky,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleScaleStart(ScaleStartDetails details) {
+    _isScaling = details.pointerCount > 1;
+    if (_isScaling) {
+      _initialScale = _scale;
+    }
+  }
+
+  void _handleScaleUpdate(ScaleUpdateDetails details) {
+    if (!_isScaling) {
+      return;
+    }
+    final double nextScale = (_initialScale * details.scale).clamp(1.0, 3.0);
+    if ((nextScale - _scale).abs() > 0.001) {
+      setState(() {
+        _scale = nextScale;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _updateViewport());
+    }
+  }
+
+  void _handleScaleEnd(ScaleEndDetails details) {
+    _isScaling = false;
   }
 
   void _requestClose() {
@@ -196,291 +367,17 @@ class _InteractiveTablePageState extends State<_InteractiveTablePage> {
       }
     });
   }
-
-  Widget _buildBodyScroll(MarkdownStyleSheet sheet) {
-    final Widget tableWidget = _buildFullTable(
-      sheet,
-      key: _tableKey,
-    );
-
-    return Scrollbar(
-      controller: _verticalController,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        controller: _verticalController,
-        scrollDirection: Axis.vertical,
-        child: Scrollbar(
-          controller: _horizontalController,
-          thumbVisibility: true,
-          notificationPredicate: (ScrollNotification notification) =>
-              notification.metrics.axis == Axis.horizontal,
-          child: SingleChildScrollView(
-            controller: _horizontalController,
-            scrollDirection: Axis.horizontal,
-            child: tableWidget,
-          ),
-        ),
-      ),
-    );
-  }
-
-  List<Widget> _buildStickyOverlays(MarkdownStyleSheet sheet) {
-    if (_tableWidth == null ||
-        _tableHeight == null ||
-        _headerHeight == null ||
-        _firstColumnWidth == null ||
-        _headerHeight == 0 ||
-        _firstColumnWidth == 0) {
-      return const <Widget>[];
-    }
-
-    final Color overlayColor = Theme.of(context).colorScheme.surface;
-
-    final Widget headerOverlay = Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      height: _headerHeight!,
-      child: IgnorePointer(
-        child: ValueListenableBuilder<double>(
-          valueListenable: _horizontalOffset,
-          builder: (BuildContext context, double offset, Widget? child) {
-            return Transform.translate(
-              offset: Offset(-offset, 0),
-              child: child,
-            );
-          },
-          child: ClipRect(
-            clipper: _HeaderClipper(height: _headerHeight!),
-            child: DecoratedBox(
-              decoration: BoxDecoration(color: overlayColor),
-              child: SizedBox(
-                width: _tableWidth!,
-                height: _headerHeight!,
-                child: _buildFullTable(sheet),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    final Widget leftColumnOverlay = Positioned(
-      top: _headerHeight!,
-      left: 0,
-      bottom: 0,
-      width: _firstColumnWidth!,
-      child: IgnorePointer(
-        child: ValueListenableBuilder<double>(
-          valueListenable: _verticalOffset,
-          builder: (BuildContext context, double offset, Widget? child) {
-            return Transform.translate(
-              offset: Offset(0, -offset),
-              child: child,
-            );
-          },
-          child: ClipRect(
-            clipper: _LeftColumnClipper(
-              width: _firstColumnWidth!,
-            ),
-            child: DecoratedBox(
-              decoration: BoxDecoration(color: overlayColor),
-              child: Transform.translate(
-                offset: Offset(0, -_headerHeight!),
-                child: SizedBox(
-                  width: _tableWidth!,
-                  height: _tableHeight!,
-                  child: _buildFullTable(sheet),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    return <Widget>[
-      leftColumnOverlay,
-      headerOverlay,
-    ];
-  }
-
-  Widget _buildFullTable(
-    MarkdownStyleSheet sheet, {
-    Key? key,
-  }) {
-    final List<Widget> built = widget.buildElement(
-      widget.tableElement,
-      overrideStyleSheet: sheet,
-    );
-    final Widget table =
-        built.isNotEmpty ? built.first : const SizedBox.shrink();
-    return KeyedSubtree(
-      key: key,
-      child: table,
-    );
-  }
-
-  void _handleScaleStart(ScaleStartDetails details) {
-    _isScaling = details.pointerCount > 1;
-    if (_isScaling) {
-      _initialScale = _scale;
-    }
-  }
-
-  void _handleScaleUpdate(ScaleUpdateDetails details) {
-    if (!_isScaling) {
-      return;
-    }
-    final double nextScale =
-        (_initialScale * details.scale).clamp(1.0, 3.0) as double;
-    if ((nextScale - _scale).abs() > 0.001) {
-      setState(() {
-        _scale = nextScale;
-      });
-      _scheduleMeasurement();
-    }
-  }
-
-  void _handleScaleEnd(ScaleEndDetails details) {
-    _isScaling = false;
-  }
-
-  void _scheduleMeasurement() {
-    if (_scheduledMeasurement) {
-      return;
-    }
-    _scheduledMeasurement = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scheduledMeasurement = false;
-      _updateMeasurements();
-    });
-  }
-
-  void _updateMeasurements() {
-    final RenderObject? renderObject =
-        _tableKey.currentContext?.findRenderObject();
-    if (renderObject == null) {
-      return;
-    }
-
-    final RenderTable? table = _locateRenderTable(renderObject);
-    if (table == null) {
-      return;
-    }
-    final double newTableWidth = table.size.width;
-    final double newTableHeight = table.size.height;
-    final double newHeaderHeight =
-        table.rows > 0 ? table.getRowBox(0).height : 0;
-    double newFirstColumnWidth = 0;
-
-    table.visitChildren((RenderObject child) {
-      if (child is! RenderBox) {
-        return;
-      }
-      final TableCellParentData parentData =
-          child.parentData! as TableCellParentData;
-      if (parentData.x == 0) {
-        newFirstColumnWidth = math.max(newFirstColumnWidth, child.size.width);
-      }
-    });
-
-    bool changed = false;
-
-    void updateValue(
-        double? current, double next, void Function(double) setter) {
-      if (current == null || (current - next).abs() > 0.5) {
-        setter(next);
-        changed = true;
-      }
-    }
-
-    updateValue(_tableWidth, newTableWidth, (double value) {
-      _tableWidth = value;
-    });
-    updateValue(_tableHeight, newTableHeight, (double value) {
-      _tableHeight = value;
-    });
-    updateValue(_headerHeight, newHeaderHeight, (double value) {
-      _headerHeight = value;
-    });
-    updateValue(_firstColumnWidth, newFirstColumnWidth, (double value) {
-      _firstColumnWidth = value;
-    });
-
-    if (changed && mounted) {
-      setState(() {});
-    }
-  }
-
-  RenderTable? _locateRenderTable(RenderObject node) {
-    if (node is RenderTable) {
-      return node;
-    }
-    if (node is RenderObjectWithChildMixin<RenderObject>) {
-      final RenderObject? child = node.child;
-      final RenderTable? result =
-          child == null ? null : _locateRenderTable(child);
-      if (result != null) {
-        return result;
-      }
-    }
-    if (node is ContainerRenderObjectMixin<RenderObject,
-        ContainerParentDataMixin<RenderObject>>) {
-      RenderObject? child = node.firstChild;
-      while (child != null) {
-        final RenderTable? result = _locateRenderTable(child);
-        if (result != null) {
-          return result;
-        }
-        final ContainerParentDataMixin<RenderObject>? parentData =
-            child.parentData as ContainerParentDataMixin<RenderObject>?;
-        child = parentData?.nextSibling;
-      }
-    }
-    return null;
-  }
 }
 
-class _HeaderClipper extends CustomClipper<Rect> {
-  _HeaderClipper({required this.height});
+class _TableBuildResult {
+  const _TableBuildResult({required this.table, required this.widget});
 
-  final double height;
-
-  @override
-  Rect getClip(Size size) =>
-      Rect.fromLTWH(0, 0, size.width, math.min(height, size.height));
-
-  @override
-  bool shouldReclip(_HeaderClipper oldClipper) =>
-      (oldClipper.height - height).abs() > 0.5;
-}
-
-class _LeftColumnClipper extends CustomClipper<Rect> {
-  _LeftColumnClipper({
-    required this.width,
-  });
-
-  final double width;
-
-  @override
-  Rect getClip(Size size) => Rect.fromLTWH(
-        0,
-        0,
-        math.min(width, size.width),
-        size.height,
-      );
-
-  @override
-  bool shouldReclip(_LeftColumnClipper oldClipper) =>
-      (oldClipper.width - width).abs() > 0.5;
+  final Table? table;
+  final Widget widget;
 }
 
 class _TableSummary {
-  _TableSummary({
-    required this.rowCount,
-    required this.columnCount,
-  });
+  _TableSummary({required this.rowCount, required this.columnCount});
 
   final int rowCount;
   final int columnCount;
@@ -517,6 +414,23 @@ class _TableSummary {
 
     return _TableSummary(rowCount: rows, columnCount: maxColumns);
   }
+}
+
+class _IntrinsicDelegateColumnWidth extends TableColumnWidth {
+  const _IntrinsicDelegateColumnWidth();
+
+  static const IntrinsicColumnWidth _delegate = IntrinsicColumnWidth();
+
+  @override
+  double minIntrinsicWidth(Iterable<RenderBox> cells, double containerWidth) =>
+      _delegate.minIntrinsicWidth(cells, containerWidth);
+
+  @override
+  double maxIntrinsicWidth(Iterable<RenderBox> cells, double containerWidth) =>
+      _delegate.maxIntrinsicWidth(cells, containerWidth);
+
+  @override
+  double? flex(Iterable<RenderBox> cells) => _delegate.flex(cells);
 }
 
 class _InteractiveTableHeader extends StatelessWidget {

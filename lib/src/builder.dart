@@ -2,8 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import '_functions_io.dart' if (dart.library.js_interop) '_functions_web.dart';
@@ -1163,24 +1166,34 @@ class _InlineTableWrapperState extends State<_InlineTableWrapper> {
       final size = context.size;
       if (size == null) return;
 
-      double scale = 1.0;
-      double naturalWidth = size.width;
+      final Map<int, double>? columnWidths = _collectColumnWidths();
+      final double minColumnWidth = widget.styleSheet.inlineTableMinColumnWidth;
       final int columns = _columnCount;
-      if (maxWidth != null && maxWidth > 0) {
-        if (columns > 0) {
-          final double minDesiredWidth = columns * 100.0;
-          if (maxWidth < minDesiredWidth) {
-            scale = maxWidth / minDesiredWidth;
-            naturalWidth = minDesiredWidth;
-          } else if (naturalWidth > maxWidth) {
-            scale = maxWidth / naturalWidth;
-          }
-        } else if (naturalWidth > maxWidth) {
-          scale = maxWidth / naturalWidth;
+      double baselineWidth = size.width;
+      if (columnWidths != null && columnWidths.isNotEmpty) {
+        baselineWidth = 0;
+        for (int index = 0; index < columns; index += 1) {
+          final double measured = columnWidths[index] ?? 0;
+          baselineWidth += math.max(measured, minColumnWidth);
+        }
+      } else if (columns > 0) {
+        baselineWidth = math.max(baselineWidth, columns * minColumnWidth);
+      }
+
+      double scale = 1.0;
+      if (maxWidth != null &&
+          maxWidth > 0 &&
+          baselineWidth > 0 &&
+          baselineWidth > maxWidth) {
+        final double candidateScale = maxWidth / baselineWidth;
+        final double threshold =
+            widget.styleSheet.inlineTableMinViewportFraction.clamp(0.0, 1.0);
+        if (threshold == 0 || candidateScale < threshold) {
+          scale = candidateScale;
         }
       }
 
-      final Size adjustedSize = Size(naturalWidth, size.height);
+      final Size adjustedSize = Size(baselineWidth, size.height);
       if (_scale != scale ||
           _tableSize != adjustedSize ||
           _lastMaxWidth != maxWidth) {
@@ -1191,6 +1204,58 @@ class _InlineTableWrapperState extends State<_InlineTableWrapper> {
         });
       }
     });
+  }
+
+  Map<int, double>? _collectColumnWidths() {
+    final RenderObject? renderObject =
+        _tableKey.currentContext?.findRenderObject();
+    if (renderObject == null) {
+      return null;
+    }
+    final RenderTable? table = _locateRenderTable(renderObject);
+    if (table == null) {
+      return null;
+    }
+    final Map<int, double> widths = <int, double>{};
+    table.visitChildren((RenderObject child) {
+      if (child is! RenderBox) {
+        return;
+      }
+      final TableCellParentData parentData =
+          child.parentData! as TableCellParentData;
+      final int column = parentData.x ?? 0;
+      final double childWidth = child.size.width;
+      widths[column] = math.max(widths[column] ?? 0, childWidth);
+    });
+    return widths;
+  }
+
+  RenderTable? _locateRenderTable(RenderObject node) {
+    if (node is RenderTable) {
+      return node;
+    }
+    if (node is RenderObjectWithChildMixin<RenderObject>) {
+      final RenderObject? child = node.child;
+      final RenderTable? result =
+          child == null ? null : _locateRenderTable(child);
+      if (result != null) {
+        return result;
+      }
+    }
+    if (node is ContainerRenderObjectMixin<RenderObject,
+        ContainerParentDataMixin<RenderObject>>) {
+      RenderObject? child = node.firstChild;
+      while (child != null) {
+        final RenderTable? result = _locateRenderTable(child);
+        if (result != null) {
+          return result;
+        }
+        final ContainerParentDataMixin<RenderObject>? parentData =
+            child.parentData as ContainerParentDataMixin<RenderObject>?;
+        child = parentData?.nextSibling;
+      }
+    }
+    return null;
   }
 
   double? _resolveMaxWidth(BoxConstraints constraints, BuildContext context) {
@@ -1204,7 +1269,11 @@ class _InlineTableWrapperState extends State<_InlineTableWrapper> {
   @override
   void didUpdateWidget(covariant _InlineTableWrapper oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.baseTable != widget.baseTable) {
+    if (oldWidget.baseTable != widget.baseTable ||
+        oldWidget.styleSheet.inlineTableMinColumnWidth !=
+            widget.styleSheet.inlineTableMinColumnWidth ||
+        oldWidget.styleSheet.inlineTableMinViewportFraction !=
+            widget.styleSheet.inlineTableMinViewportFraction) {
       _scale = null;
       _tableSize = null;
     }

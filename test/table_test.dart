@@ -3,8 +3,10 @@
 // found in the LICENSE file.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_markdown_plus/src/interactive_table.dart';
+import 'package:flutter_markdown_plus/src/sticky_table.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -820,26 +822,13 @@ void defineTests() {
       await tester.pump();
 
       expect(find.byIcon(Icons.close), findsOneWidget);
+      expect(find.byType(StickyTable), findsOneWidget);
 
-      final Iterable<ClipRect> clips =
-          tester.widgetList<ClipRect>(find.byType(ClipRect));
-      final bool hasHeaderClipper = clips.any(
-        (ClipRect clip) =>
-            clip.clipper != null &&
-            clip.clipper.runtimeType.toString() == '_HeaderClipper',
-      );
-      final bool hasLeftClipper = clips.any(
-        (ClipRect clip) =>
-            clip.clipper != null &&
-            clip.clipper.runtimeType.toString() == '_LeftColumnClipper',
-      );
-
-      expect(hasHeaderClipper, isTrue);
-      expect(hasLeftClipper, isTrue);
-      expect(
-        tester.widgetList<Table>(find.byType(Table)).length,
-        greaterThanOrEqualTo(3),
-      );
+      final RenderStickyTable renderSticky =
+          tester.renderObject<RenderStickyTable>(find.byType(StickyTable));
+      expect(renderSticky.stickyRowCount, greaterThanOrEqualTo(1));
+      expect(renderSticky.stickyColumnCount, greaterThanOrEqualTo(1));
+      expect(renderSticky.stickyColumnMaxFraction, closeTo(1.0, 0.0001));
 
       await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();

@@ -42,6 +42,9 @@ class MarkdownStyleSheet {
     this.tableBorder,
     this.tableColumnWidth,
     this.tableScrollbarThumbVisibility,
+    this.inlineTableMinColumnWidth = 100.0,
+    this.inlineTableMinViewportFraction = 0.25,
+    this.interactiveTableStickyColumnMaxViewportFraction = 1.0,
     this.tableCellsPadding,
     this.tableCellsDecoration,
     this.tableVerticalAlignment = TableCellVerticalAlignment.middle,
@@ -378,6 +381,9 @@ class MarkdownStyleSheet {
     TableBorder? tableBorder,
     TableColumnWidth? tableColumnWidth,
     bool? tableScrollbarThumbVisibility,
+    double? inlineTableMinColumnWidth,
+    double? inlineTableMinViewportFraction,
+    double? interactiveTableStickyColumnMaxViewportFraction,
     EdgeInsets? tableCellsPadding,
     Decoration? tableCellsDecoration,
     TableCellVerticalAlignment? tableVerticalAlignment,
@@ -446,6 +452,13 @@ class MarkdownStyleSheet {
       tableBorder: tableBorder ?? this.tableBorder,
       tableColumnWidth: tableColumnWidth ?? this.tableColumnWidth,
       tableScrollbarThumbVisibility: tableScrollbarThumbVisibility,
+      inlineTableMinColumnWidth:
+          inlineTableMinColumnWidth ?? this.inlineTableMinColumnWidth,
+      inlineTableMinViewportFraction:
+          inlineTableMinViewportFraction ?? this.inlineTableMinViewportFraction,
+      interactiveTableStickyColumnMaxViewportFraction:
+          interactiveTableStickyColumnMaxViewportFraction ??
+              this.interactiveTableStickyColumnMaxViewportFraction,
       tableCellsPadding: tableCellsPadding ?? this.tableCellsPadding,
       tableCellsDecoration: tableCellsDecoration ?? this.tableCellsDecoration,
       tableVerticalAlignment:
@@ -516,6 +529,10 @@ class MarkdownStyleSheet {
       tableBorder: other.tableBorder,
       tableColumnWidth: other.tableColumnWidth,
       tableScrollbarThumbVisibility: other.tableScrollbarThumbVisibility,
+      inlineTableMinColumnWidth: other.inlineTableMinColumnWidth,
+      inlineTableMinViewportFraction: other.inlineTableMinViewportFraction,
+      interactiveTableStickyColumnMaxViewportFraction:
+          other.interactiveTableStickyColumnMaxViewportFraction,
       tableCellsPadding: other.tableCellsPadding,
       tableCellsDecoration: other.tableCellsDecoration,
       tableVerticalAlignment: other.tableVerticalAlignment,
@@ -654,6 +671,15 @@ class MarkdownStyleSheet {
   /// The [TableCellVerticalAlignment] to use for `th` and `td` elements.
   final TableCellVerticalAlignment tableVerticalAlignment;
 
+  /// The minimum logical pixel width to budget for each column before shrinking inline tables.
+  final double inlineTableMinColumnWidth;
+
+  /// The minimum portion of the available inline width a table should occupy before shrinking.
+  final double inlineTableMinViewportFraction;
+
+  /// The maximum portion of the overlay width the pinned first column may consume.
+  final double interactiveTableStickyColumnMaxViewportFraction;
+
   /// Whether tables support interactive expansion by default.
   final bool enableInteractiveTable;
 
@@ -769,6 +795,11 @@ class MarkdownStyleSheet {
         other.tableCellsPadding == tableCellsPadding &&
         other.tableCellsDecoration == tableCellsDecoration &&
         other.tableVerticalAlignment == tableVerticalAlignment &&
+        other.inlineTableMinColumnWidth == inlineTableMinColumnWidth &&
+        other.inlineTableMinViewportFraction ==
+            inlineTableMinViewportFraction &&
+        other.interactiveTableStickyColumnMaxViewportFraction ==
+            interactiveTableStickyColumnMaxViewportFraction &&
         other.blockquotePadding == blockquotePadding &&
         other.blockquoteDecoration == blockquoteDecoration &&
         other.codeblockPadding == codeblockPadding &&
@@ -830,6 +861,9 @@ class MarkdownStyleSheet {
       tableCellsPadding,
       tableCellsDecoration,
       tableVerticalAlignment,
+      inlineTableMinColumnWidth,
+      inlineTableMinViewportFraction,
+      interactiveTableStickyColumnMaxViewportFraction,
       blockquotePadding,
       blockquoteDecoration,
       codeblockPadding,
