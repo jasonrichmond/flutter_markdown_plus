@@ -54,48 +54,12 @@ bool _isBlockTag(String? tag) => _kBlockTags.contains(tag);
 
 bool _isListTag(String tag) => _kListTags.contains(tag);
 
-const List<String> _kSuperscriptDigits = <String>[
-  '⁰',
-  '¹',
-  '²',
-  '³',
-  '⁴',
-  '⁵',
-  '⁶',
-  '⁷',
-  '⁸',
-  '⁹',
-];
-
-const List<String> _kSubscriptDigits = <String>[
-  '₀',
-  '₁',
-  '₂',
-  '₃',
-  '₄',
-  '₅',
-  '₆',
-  '₇',
-  '₈',
-  '₉',
-];
-
-String _replaceDigits(String text, List<String> replacements) {
-  if (text.isEmpty) {
-    return text;
-  }
-  final StringBuffer buffer = StringBuffer();
-  for (int i = 0; i < text.length; i++) {
-    final int codeUnit = text.codeUnitAt(i);
-    final int digit = codeUnit - 0x30;
-    if (digit >= 0 && digit <= 9) {
-      buffer.write(replacements[digit]);
-    } else {
-      buffer.write(text[i]);
-    }
-  }
-  return buffer.toString();
-}
+const double _kSuperscriptFontScale = 0.75;
+const double _kSubscriptFontScale = 0.75;
+const double _kSuperscriptBaselineShift = -0.35;
+const double _kSubscriptBaselineShift = 0.15;
+const double _kFallbackFontSize = 14.0;
+const Key _kSupSubFallbackKey = ValueKey<String>('markdown_sup_sub_fallback');
 
 List<FontFeature> _mergeFontFeatures(
   List<FontFeature>? existing,
@@ -678,36 +642,49 @@ class MarkdownBuilder implements md.NodeVisitor {
         _linkHandlers.removeLast();
       } else if (tag == 'sup' || tag == 'sub') {
         final Widget c = current.children.last;
-        TextSpan? textSpan;
-        if (c is Text && c.textSpan is TextSpan) {
-          textSpan = c.textSpan! as TextSpan;
-        } else if (c is SelectableText && c.textSpan is TextSpan) {
-          textSpan = c.textSpan;
-        }
-        if (textSpan != null) {
+        final InlineSpan? inlineSpan = _getInlineSpanFromText(c);
+        if (inlineSpan is TextSpan) {
           final bool isSup = tag == 'sup';
-          final bool isFootnoteRef =
-              isSup && element.attributes['class'] == 'footnote-ref';
-          final String updatedText = isSup
-              ? (isFootnoteRef
-                  ? element.textContent
-                  : _replaceDigits(element.textContent, _kSuperscriptDigits))
-              : _replaceDigits(element.textContent, _kSubscriptDigits);
+          final String updatedText = element.textContent;
           final List<FontFeature> additions = <FontFeature>[
             FontFeature.enable(isSup ? 'sups' : 'subs'),
             if (isSup && styleSheet.superscriptFontFeatureTag != null)
               FontFeature.enable(styleSheet.superscriptFontFeatureTag!),
           ];
           final List<FontFeature> mergedFeatures =
-              _mergeFontFeatures(textSpan.style?.fontFeatures, additions);
-          final TextStyle? nextStyle = (textSpan.style ?? const TextStyle())
-              .copyWith(fontFeatures: mergedFeatures);
-          final Widget richText = _buildRichText(
-            TextSpan(
-              recognizer: textSpan.recognizer,
-              text: updatedText,
-              style: nextStyle,
+              _mergeFontFeatures(inlineSpan.style?.fontFeatures, additions);
+          final TextStyle baseStyle = inlineSpan.style ?? const TextStyle();
+          final double baseFontSize =
+              baseStyle.fontSize ?? styleSheet.p?.fontSize ?? _kFallbackFontSize;
+          final double scale =
+              isSup ? _kSuperscriptFontScale : _kSubscriptFontScale;
+          final double shift = baseFontSize *
+              (isSup ? _kSuperscriptBaselineShift : _kSubscriptBaselineShift);
+          final TextStyle shiftedStyle = baseStyle.copyWith(
+            fontSize: baseFontSize * scale,
+            fontFeatures: mergedFeatures,
+          );
+          final TextSpan shiftedSpan = TextSpan(
+            recognizer: inlineSpan.recognizer,
+            text: updatedText,
+            style: shiftedStyle,
+          );
+          final Widget shiftedChild = Transform.translate(
+            offset: Offset(0, shift),
+            child: RichText(
+              key: _kSupSubFallbackKey,
+              text: shiftedSpan,
+              textScaler: styleSheet.textScaler ?? TextScaler.noScaling,
             ),
+          );
+          // Baseline shift fallback for fonts without OpenType sub/sup support.
+          final WidgetSpan widgetSpan = WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: shiftedChild,
+          );
+          final Widget richText = _buildRichText(
+            TextSpan(children: <InlineSpan>[widgetSpan]),
           );
           current.children.removeLast();
           current.children.add(richText);

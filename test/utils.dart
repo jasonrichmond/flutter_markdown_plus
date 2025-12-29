@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 final TextTheme textTheme =
     Typography.material2018().black.merge(const TextTheme(bodyMedium: TextStyle(fontSize: 12.0)));
+const Key _kSupSubFallbackKey = ValueKey<String>('markdown_sup_sub_fallback');
 
 Iterable<Widget> selfAndDescendantWidgetsOf(Finder start, WidgetTester tester) {
   final Element startElement = tester.element(start);
@@ -74,6 +75,9 @@ void expectTextStrings(Iterable<Widget> widgets, List<String> strings) {
   for (final Widget widget in widgets) {
     TextSpan? span;
     if (widget is RichText) {
+      if (widget.key == _kSupSubFallbackKey) {
+        continue;
+      }
       span = widget.text as TextSpan;
     } else if (widget is SelectableText) {
       span = widget.textSpan;
@@ -87,13 +91,53 @@ void expectTextStrings(Iterable<Widget> widgets, List<String> strings) {
 }
 
 String _extractTextFromTextSpan(TextSpan span) {
-  String text = span.text ?? '';
-  if (span.children != null) {
-    for (final TextSpan child in span.children!.toList().cast<TextSpan>()) {
-      text += _extractTextFromTextSpan(child);
+  return _extractTextFromInlineSpan(span);
+}
+
+String _extractTextFromInlineSpan(InlineSpan span) {
+  if (span is TextSpan) {
+    String text = span.text ?? '';
+    final List<InlineSpan>? children = span.children;
+    if (children != null) {
+      for (final InlineSpan child in children) {
+        text += _extractTextFromInlineSpan(child);
+      }
+    }
+    return text;
+  }
+  if (span is WidgetSpan) {
+    return _extractTextFromWidget(span.child);
+  }
+  return '';
+}
+
+String _extractTextFromWidget(Widget widget) {
+  if (widget is Text) {
+    final InlineSpan? span = widget.textSpan;
+    if (span is TextSpan) {
+      return _extractTextFromInlineSpan(span);
+    }
+    return widget.data ?? '';
+  }
+  if (widget is RichText) {
+    final InlineSpan span = widget.text;
+    if (span is TextSpan) {
+      return _extractTextFromInlineSpan(span);
     }
   }
-  return text;
+  if (widget is SelectableText) {
+    final InlineSpan? span = widget.textSpan;
+    if (span is TextSpan) {
+      return _extractTextFromInlineSpan(span);
+    }
+  }
+  if (widget is Transform) {
+    final Widget? child = widget.child;
+    if (child != null) {
+      return _extractTextFromWidget(child);
+    }
+  }
+  return '';
 }
 
 // Check the font style and weight of the text span.

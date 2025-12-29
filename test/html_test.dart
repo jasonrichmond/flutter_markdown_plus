@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'utils.dart';
@@ -65,15 +65,18 @@ void defineTests() {
 
         final Text text = tester.widget(find.byType(Text).first);
         final TextSpan span = text.textSpan! as TextSpan;
-        expect(span.toPlainText(), 'H₂O and E = mc² plus underline.');
+        expect(
+          _extractInlineText(span),
+          'H2O and E = mc2 plus underline.',
+        );
 
         final List<TextSpan> spans = _collectTextSpans(span);
         expect(
-          spans.where((TextSpan s) => s.text == '₂' && _hasFontFeature(s, 'subs')).length,
+          spans.where((TextSpan s) => s.text == '2' && _hasFontFeature(s, 'subs')).length,
           1,
         );
         expect(
-          spans.where((TextSpan s) => s.text == '²' && _hasFontFeature(s, 'sups')).length,
+          spans.where((TextSpan s) => s.text == '2' && _hasFontFeature(s, 'sups')).length,
           1,
         );
 
@@ -97,11 +100,29 @@ List<TextSpan> _collectTextSpans(InlineSpan span) {
           visit(child);
         }
       }
+    } else if (current is WidgetSpan) {
+      spans.addAll(_collectTextSpansFromWidget(current.child));
     }
   }
 
   visit(span);
   return spans;
+}
+
+List<TextSpan> _collectTextSpansFromWidget(Widget widget) {
+  if (widget is Text && widget.textSpan is TextSpan) {
+    return _collectTextSpans(widget.textSpan!);
+  }
+  if (widget is RichText && widget.text is TextSpan) {
+    return _collectTextSpans(widget.text as TextSpan);
+  }
+  if (widget is SelectableText && widget.textSpan is TextSpan) {
+    return _collectTextSpans(widget.textSpan!);
+  }
+  if (widget is Transform && widget.child != null) {
+    return _collectTextSpansFromWidget(widget.child!);
+  }
+  return <TextSpan>[];
 }
 
 bool _hasFontFeature(TextSpan span, String feature) {
@@ -110,4 +131,37 @@ bool _hasFontFeature(TextSpan span, String feature) {
     return false;
   }
   return features.any((FontFeature value) => value.feature == feature);
+}
+
+String _extractInlineText(InlineSpan span) {
+  if (span is TextSpan) {
+    String text = span.text ?? '';
+    final List<InlineSpan>? children = span.children;
+    if (children != null) {
+      for (final InlineSpan child in children) {
+        text += _extractInlineText(child);
+      }
+    }
+    return text;
+  }
+  if (span is WidgetSpan) {
+    return _extractInlineTextFromWidget(span.child);
+  }
+  return '';
+}
+
+String _extractInlineTextFromWidget(Widget widget) {
+  if (widget is Text && widget.textSpan is TextSpan) {
+    return _extractInlineText(widget.textSpan!);
+  }
+  if (widget is RichText && widget.text is TextSpan) {
+    return _extractInlineText(widget.text as TextSpan);
+  }
+  if (widget is SelectableText && widget.textSpan is TextSpan) {
+    return _extractInlineText(widget.textSpan!);
+  }
+  if (widget is Transform && widget.child != null) {
+    return _extractInlineTextFromWidget(widget.child!);
+  }
+  return '';
 }

@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -177,9 +177,11 @@ void defineTests() {
 
           expect(children, isNotNull);
           expect(children!.length, 2);
-          expect(children[1].style, isNotNull);
-          expect(children[1].style!.fontFeatures?.length, 1);
-          expect(children[1].style!.fontFeatures?.first.feature, 'sups');
+          final TextSpan superscriptSpan =
+              _extractTextSpanFromInlineSpan(children[1]);
+          expect(superscriptSpan.style, isNotNull);
+          expect(superscriptSpan.style!.fontFeatures?.length, 1);
+          expect(superscriptSpan.style!.fontFeatures?.first.feature, 'sups');
         },
       );
 
@@ -204,9 +206,11 @@ void defineTests() {
 
           expect(children, isNotNull);
           expect(children!.length, 2);
-          expect(children[1].style, isNotNull);
-          expect(children[1].style!.fontFeatures?.length, 2);
-          expect(children[1].style!.fontFeatures?[1].feature, 'numr');
+          final TextSpan superscriptSpan =
+              _extractTextSpanFromInlineSpan(children[1]);
+          expect(superscriptSpan.style, isNotNull);
+          expect(superscriptSpan.style!.fontFeatures?.length, 2);
+          expect(superscriptSpan.style!.fontFeatures?[1].feature, 'numr');
         },
       );
 
@@ -228,11 +232,16 @@ void defineTests() {
           final TextSpan span = text.textSpan! as TextSpan;
           final List<InlineSpan>? children = span.children;
 
-          expect(children![0].style, isNotNull);
-          expect(children[1].style!.fontSize, children[0].style!.fontSize);
-          expect(children[1].style!.fontFamily, children[0].style!.fontFamily);
-          expect(children[1].style!.fontStyle, children[0].style!.fontStyle);
-          expect(children[1].style!.fontSize, children[0].style!.fontSize);
+          final TextSpan baseSpan = children![0] as TextSpan;
+          final TextSpan superscriptSpan =
+              _extractTextSpanFromInlineSpan(children[1]);
+          expect(baseSpan.style, isNotNull);
+          expect(superscriptSpan.style, isNotNull);
+          expect(superscriptSpan.style!.fontFamily, baseSpan.style!.fontFamily);
+          expect(superscriptSpan.style!.fontStyle, baseSpan.style!.fontStyle);
+          expect(baseSpan.style!.fontSize, isNotNull);
+          expect(superscriptSpan.style!.fontSize, isNotNull);
+          expect(superscriptSpan.style!.fontSize!, lessThan(baseSpan.style!.fontSize!));
         },
       );
 
@@ -256,26 +265,47 @@ void defineTests() {
 
           final TextSpan span = text.textSpan! as TextSpan;
 
-          final List<Type> gestureRecognizerTypes = <Type>[];
-          span.visitChildren((InlineSpan inlineSpan) {
-            if (inlineSpan is TextSpan) {
-              final TapGestureRecognizer? recognizer = inlineSpan.recognizer as TapGestureRecognizer?;
-              gestureRecognizerTypes.add(recognizer?.runtimeType ?? Null);
-              if (recognizer != null) {
-                recognizer.onTap!();
-              }
-            }
-            return true;
-          });
+          final TextSpan baseSpan = span.children!.first as TextSpan;
+          final TapGestureRecognizer? baseRecognizer =
+              baseSpan.recognizer as TapGestureRecognizer?;
+          expect(baseRecognizer, isNull);
+          final TextSpan superscriptSpan =
+              _extractTextSpanFromInlineSpan(span.children![1]);
+          final TapGestureRecognizer? recognizer =
+              superscriptSpan.recognizer as TapGestureRecognizer?;
+          expect(recognizer, isNotNull);
+          recognizer!.onTap!();
 
           expect(span.children!.length, 2);
-          expect(
-            gestureRecognizerTypes,
-            orderedEquals(<Type>[Null, TapGestureRecognizer]),
-          );
           expectLinkTap(linkTapResults[0], const MarkdownLink('1', '#fn-a'));
         },
       );
     },
   );
+}
+
+TextSpan _extractTextSpanFromInlineSpan(InlineSpan span) {
+  if (span is TextSpan) {
+    return span;
+  }
+  if (span is WidgetSpan) {
+    return _extractTextSpanFromWidget(span.child);
+  }
+  throw StateError('Unsupported inline span: $span');
+}
+
+TextSpan _extractTextSpanFromWidget(Widget widget) {
+  if (widget is Text && widget.textSpan is TextSpan) {
+    return widget.textSpan! as TextSpan;
+  }
+  if (widget is RichText && widget.text is TextSpan) {
+    return widget.text as TextSpan;
+  }
+  if (widget is SelectableText && widget.textSpan is TextSpan) {
+    return widget.textSpan! as TextSpan;
+  }
+  if (widget is Transform && widget.child != null) {
+    return _extractTextSpanFromWidget(widget.child!);
+  }
+  throw StateError('Unsupported widget span child: $widget');
 }
