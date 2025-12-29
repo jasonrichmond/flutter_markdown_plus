@@ -51,5 +51,63 @@ void defineTests() {
         expectTextStrings(tester.allWidgets, <String>['<']);
       },
     );
+
+    testWidgets(
+      'parses inline sub, sup, and u tags',
+      (WidgetTester tester) async {
+        const String data = 'H<sub>2</sub>O and E = mc<sup>2</sup> plus <u>underline</u>.';
+
+        await tester.pumpWidget(
+          boilerplate(
+            const MarkdownBody(data: data),
+          ),
+        );
+
+        final Text text = tester.widget(find.byType(Text).first);
+        final TextSpan span = text.textSpan! as TextSpan;
+        expect(span.toPlainText(), 'H₂O and E = mc² plus underline.');
+
+        final List<TextSpan> spans = _collectTextSpans(span);
+        expect(
+          spans.where((TextSpan s) => s.text == '₂' && _hasFontFeature(s, 'subs')).length,
+          1,
+        );
+        expect(
+          spans.where((TextSpan s) => s.text == '²' && _hasFontFeature(s, 'sups')).length,
+          1,
+        );
+
+        final TextSpan underlineSpan =
+            spans.firstWhere((TextSpan s) => s.text?.contains('underline') ?? false);
+        expect(underlineSpan.style, isNotNull);
+        expect(underlineSpan.style!.decoration, TextDecoration.underline);
+      },
+    );
   });
+}
+
+List<TextSpan> _collectTextSpans(InlineSpan span) {
+  final List<TextSpan> spans = <TextSpan>[];
+  void visit(InlineSpan current) {
+    if (current is TextSpan) {
+      spans.add(current);
+      final List<InlineSpan>? children = current.children;
+      if (children != null) {
+        for (final InlineSpan child in children) {
+          visit(child);
+        }
+      }
+    }
+  }
+
+  visit(span);
+  return spans;
+}
+
+bool _hasFontFeature(TextSpan span, String feature) {
+  final List<FontFeature>? features = span.style?.fontFeatures;
+  if (features == null) {
+    return false;
+  }
+  return features.any((FontFeature value) => value.feature == feature);
 }

@@ -65,6 +65,8 @@ class MarkdownStyleSheet {
     this.blockquoteAlign = WrapAlignment.start,
     this.codeblockAlign = WrapAlignment.start,
     this.enableInteractiveTable = true,
+    this.enableStickyTableHeader = true,
+    this.enableStickyTableColumn = true,
     this.superscriptFontFeatureTag,
     @Deprecated('Use textScaler instead.') this.textScaleFactor,
     TextScaler? textScaler,
@@ -404,6 +406,8 @@ class MarkdownStyleSheet {
     WrapAlignment? blockquoteAlign,
     WrapAlignment? codeblockAlign,
     bool? enableInteractiveTable,
+    bool? enableStickyTableHeader,
+    bool? enableStickyTableColumn,
     String? superscriptFontFeatureTag,
     @Deprecated('Use textScaler instead.') double? textScaleFactor,
     TextScaler? textScaler,
@@ -482,6 +486,10 @@ class MarkdownStyleSheet {
       codeblockAlign: codeblockAlign ?? this.codeblockAlign,
       enableInteractiveTable:
           enableInteractiveTable ?? this.enableInteractiveTable,
+      enableStickyTableHeader:
+          enableStickyTableHeader ?? this.enableStickyTableHeader,
+      enableStickyTableColumn:
+          enableStickyTableColumn ?? this.enableStickyTableColumn,
       superscriptFontFeatureTag:
           superscriptFontFeatureTag ?? this.superscriptFontFeatureTag,
       textScaler: newTextScaler,
@@ -553,6 +561,8 @@ class MarkdownStyleSheet {
       blockquoteAlign: other.blockquoteAlign,
       codeblockAlign: other.codeblockAlign,
       enableInteractiveTable: other.enableInteractiveTable,
+      enableStickyTableHeader: other.enableStickyTableHeader,
+      enableStickyTableColumn: other.enableStickyTableColumn,
       textScaleFactor: other.textScaleFactor,
       superscriptFontFeatureTag: other.superscriptFontFeatureTag,
       // Only one of textScaler and textScaleFactor can be passed. If
@@ -682,6 +692,12 @@ class MarkdownStyleSheet {
 
   /// Whether tables support interactive expansion by default.
   final bool enableInteractiveTable;
+
+  /// Whether sticky headers are enabled in the interactive table overlay.
+  final bool enableStickyTableHeader;
+
+  /// Whether the leading column sticks in the interactive table overlay.
+  final bool enableStickyTableColumn;
 
   /// The padding to use for `blockquote` elements.
   final EdgeInsets? blockquotePadding;
@@ -817,6 +833,8 @@ class MarkdownStyleSheet {
         other.blockquoteAlign == blockquoteAlign &&
         other.codeblockAlign == codeblockAlign &&
         other.enableInteractiveTable == enableInteractiveTable &&
+        other.enableStickyTableHeader == enableStickyTableHeader &&
+        other.enableStickyTableColumn == enableStickyTableColumn &&
         other.superscriptFontFeatureTag == superscriptFontFeatureTag &&
         other.textScaler == textScaler;
   }
@@ -881,6 +899,8 @@ class MarkdownStyleSheet {
       blockquoteAlign,
       codeblockAlign,
       enableInteractiveTable,
+      enableStickyTableHeader,
+      enableStickyTableColumn,
       textScaler,
       textScaleFactor,
       superscriptFontFeatureTag,

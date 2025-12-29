@@ -12,6 +12,7 @@ import 'package:markdown/markdown.dart' as md;
 import '../flutter_markdown_plus.dart';
 import '_functions_io.dart' if (dart.library.js_interop) '_functions_web.dart';
 import 'inline_syntaxes/html_break_syntax.dart';
+import 'inline_syntaxes/html_inline_tag_syntax.dart';
 
 /// Signature for callbacks used by [MarkdownWidget] when
 /// [MarkdownWidget.selectable] is set to true and the user changes selection.
@@ -368,6 +369,7 @@ class _MarkdownWidgetState extends State<MarkdownWidget> implements MarkdownBuil
     final List<md.InlineSyntax> inlineSyntaxes = <md.InlineSyntax>[
       HtmlBreakSyntax(),
       if (widget.inlineSyntaxes != null) ...widget.inlineSyntaxes!,
+      HtmlInlineTagSyntax(),
     ];
 
     final md.Document document = md.Document(

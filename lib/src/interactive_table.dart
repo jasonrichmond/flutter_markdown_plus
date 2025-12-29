@@ -185,8 +185,12 @@ class _InteractiveTablePageState extends State<_InteractiveTablePage> {
     );
 
     final _TableBuildResult tableResult = _buildTable(interactiveSheet);
-    final int stickyRows = canStick ? 1 : 0;
-    final int stickyColumns = canStick ? 1 : 0;
+    final bool enableStickyHeader =
+        canStick && widget.styleSheet.enableStickyTableHeader;
+    final bool enableStickyColumn =
+        canStick && widget.styleSheet.enableStickyTableColumn;
+    final int stickyRows = enableStickyHeader ? 1 : 0;
+    final int stickyColumns = enableStickyColumn ? 1 : 0;
 
     final double stickyColumnMaxFraction =
         widget.styleSheet.interactiveTableStickyColumnMaxViewportFraction;

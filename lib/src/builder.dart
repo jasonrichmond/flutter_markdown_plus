@@ -54,6 +54,65 @@ bool _isBlockTag(String? tag) => _kBlockTags.contains(tag);
 
 bool _isListTag(String tag) => _kListTags.contains(tag);
 
+const List<String> _kSuperscriptDigits = <String>[
+  '⁰',
+  '¹',
+  '²',
+  '³',
+  '⁴',
+  '⁵',
+  '⁶',
+  '⁷',
+  '⁸',
+  '⁹',
+];
+
+const List<String> _kSubscriptDigits = <String>[
+  '₀',
+  '₁',
+  '₂',
+  '₃',
+  '₄',
+  '₅',
+  '₆',
+  '₇',
+  '₈',
+  '₉',
+];
+
+String _replaceDigits(String text, List<String> replacements) {
+  if (text.isEmpty) {
+    return text;
+  }
+  final StringBuffer buffer = StringBuffer();
+  for (int i = 0; i < text.length; i++) {
+    final int codeUnit = text.codeUnitAt(i);
+    final int digit = codeUnit - 0x30;
+    if (digit >= 0 && digit <= 9) {
+      buffer.write(replacements[digit]);
+    } else {
+      buffer.write(text[i]);
+    }
+  }
+  return buffer.toString();
+}
+
+List<FontFeature> _mergeFontFeatures(
+  List<FontFeature>? existing,
+  List<FontFeature> additions,
+) {
+  final List<FontFeature> merged = <FontFeature>[];
+  if (existing != null) {
+    merged.addAll(existing);
+  }
+  for (final FontFeature feature in additions) {
+    if (!merged.any((FontFeature item) => item.feature == feature.feature)) {
+      merged.add(feature);
+    }
+  }
+  return merged;
+}
+
 class _BlockElement {
   _BlockElement(this.tag);
 
@@ -303,10 +362,25 @@ class MarkdownBuilder implements md.NodeVisitor {
         element.children!.add(md.Text(''));
       }
 
+      TextStyle? tagStyle = styleSheet.styles[tag];
+      if (tag == 'sub') {
+        final List<FontFeature>? features = tagStyle?.fontFeatures;
+        if (features == null || features.isEmpty) {
+          tagStyle = (tagStyle ?? const TextStyle()).copyWith(
+            fontFeatures: const <FontFeature>[FontFeature.enable('subs')],
+          );
+        }
+      } else if (tag == 'u') {
+        if (tagStyle?.decoration == null) {
+          tagStyle = (tagStyle ?? const TextStyle()).copyWith(
+            decoration: TextDecoration.underline,
+          );
+        }
+      }
       final TextStyle parentStyle = _inlines.last.style!;
       _inlines.add(_InlineElement(
         tag,
-        style: parentStyle.merge(styleSheet.styles[tag]),
+        style: parentStyle.merge(tagStyle),
       ));
     }
 
@@ -602,7 +676,7 @@ class MarkdownBuilder implements md.NodeVisitor {
         currentTable.rows.last.children.add(child);
       } else if (tag == 'a') {
         _linkHandlers.removeLast();
-      } else if (tag == 'sup') {
+      } else if (tag == 'sup' || tag == 'sub') {
         final Widget c = current.children.last;
         TextSpan? textSpan;
         if (c is Text && c.textSpan is TextSpan) {
@@ -611,17 +685,28 @@ class MarkdownBuilder implements md.NodeVisitor {
           textSpan = c.textSpan;
         }
         if (textSpan != null) {
+          final bool isSup = tag == 'sup';
+          final bool isFootnoteRef =
+              isSup && element.attributes['class'] == 'footnote-ref';
+          final String updatedText = isSup
+              ? (isFootnoteRef
+                  ? element.textContent
+                  : _replaceDigits(element.textContent, _kSuperscriptDigits))
+              : _replaceDigits(element.textContent, _kSubscriptDigits);
+          final List<FontFeature> additions = <FontFeature>[
+            FontFeature.enable(isSup ? 'sups' : 'subs'),
+            if (isSup && styleSheet.superscriptFontFeatureTag != null)
+              FontFeature.enable(styleSheet.superscriptFontFeatureTag!),
+          ];
+          final List<FontFeature> mergedFeatures =
+              _mergeFontFeatures(textSpan.style?.fontFeatures, additions);
+          final TextStyle? nextStyle = (textSpan.style ?? const TextStyle())
+              .copyWith(fontFeatures: mergedFeatures);
           final Widget richText = _buildRichText(
             TextSpan(
               recognizer: textSpan.recognizer,
-              text: element.textContent,
-              style: textSpan.style?.copyWith(
-                fontFeatures: <FontFeature>[
-                  const FontFeature.enable('sups'),
-                  if (styleSheet.superscriptFontFeatureTag != null)
-                    FontFeature.enable(styleSheet.superscriptFontFeatureTag!),
-                ],
-              ),
+              text: updatedText,
+              style: nextStyle,
             ),
           );
           current.children.removeLast();

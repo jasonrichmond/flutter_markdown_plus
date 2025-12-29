@@ -31,6 +31,8 @@ Totals and targets
 
 Line breaks also work outside of tables:<br>Use `<br>` anywhere inline for a forced newline.
 
+Inline HTML tags also render: H<sub>2</sub>O, E = mc<sup>2</sup>, and <u>underlined text</u>.
+
 Action items
 
 | Owner  | Follow-up                                                                 |
@@ -90,6 +92,7 @@ tables and regular paragraphs.
 - Styling such as borders and cell padding can be customized with a `MarkdownStyleSheet`.
 - A blank line before and after a table keeps the document easy to read.
 - Raw HTML lists (`<ul>`/`<ol>`) nested in table cells now render with proper bullets.
+- Inline HTML tags like `<sub>`, `<sup>`, and `<u>` render as subscript, superscript, and underline.
 - Tap any table to open an expanded view with sticky headers, a pinned first column, and pinch-to-zoom support.
 ''';
 

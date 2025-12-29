@@ -860,6 +860,40 @@ void defineTests() {
     },
     experimentalLeakTesting: LeakTesting.settings.withIgnoredAll(),
   );
+
+  testWidgets(
+    'interactive table sticky controls can be disabled',
+    (WidgetTester tester) async {
+      final ThemeData theme = ThemeData.light().copyWith(textTheme: textTheme);
+      final MarkdownStyleSheet style =
+          MarkdownStyleSheet.fromTheme(theme).copyWith(
+        enableStickyTableHeader: false,
+        enableStickyTableColumn: false,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MarkdownBody(
+            data: _wideTableMarkdown,
+            styleSheet: style,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('Dose in mcg/kg/min'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      final RenderStickyTable renderSticky =
+          tester.renderObject<RenderStickyTable>(find.byType(StickyTable));
+      expect(renderSticky.stickyRowCount, 0);
+      expect(renderSticky.stickyColumnCount, 0);
+
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+    },
+    experimentalLeakTesting: LeakTesting.settings.withIgnoredAll(),
+  );
 }
 
 class _StubTableBuilder extends MarkdownElementBuilder {
